@@ -1,11 +1,11 @@
 # ScriptureScope
 A website visualization tool for the Bible
 
-This project allows people to view Bible passages as visually grouped by topic. It uses Python the NLTK library to analyize parsed USFM files, as uploaded by the user over at [www.unspezifische.com/ScriptureScope]. The visualization is done in the webpage using D3.js.
+This project allows people to view Bible passages as visually grouped by topic. It uses Python the NLTK library to analyize parsed USFM files, as uploaded by the user over at www.unspezifische.com/ScriptureScope. The visualization is done in the webpage using D3.js.
 
-Check out the NLTK Documentation here: [https://www.nltk.org/api/nltk.html]
+Check out the NLTK Documentation here: https://www.nltk.org/api/nltk.html
 
-From [https://ts2.space/en/using-nltk-for-topic-modeling-and-content-categorization/]
+From https://ts2.space/en/using-nltk-for-topic-modeling-and-content-categorization/
 Best Practices for Using NLTK for Topic Modeling and Content Categorization
 
 1. Start by familiarizing yourself with the NLTK library and its capabilities. Read the documentation and tutorials to understand how to use the library and its functions.
