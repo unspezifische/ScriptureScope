@@ -1,25 +1,9 @@
 # ScriptureScope
 A website visualization tool for the Bible
 
-This project allows people to view Bible passages as visually grouped by topic. It uses Python the NLTK library to analyize parsed USFM files, as uploaded by the user over at www.unspezifische.com/ScriptureScope. The visualization is done in the webpage using D3.js.
+This project allows people to view Bible passages, grouped visually by topic, similar to the data visualizations for LLMs and vector databases. It uses the Gensim library for Python to analyize parsed USX (Unified Scripture XML) files, which can be found at the Digital Bible Library: https://thedigitalbiblelibrary.org. There is a bit of a process to get a library card, but if you have one, there are many Bible versions (in many languages) that are freely available without any licensing arangements required. The actual site itself can be found at [www.unspezifische.com/ScriptureScope.](https://scripturescope-71f88.web.app)
 
-Check out the NLTK Documentation here: https://www.nltk.org/api/nltk.html
+Check out the Gensim Documentation [here]([https://radimrehurek.com/gensim/](https://radimrehurek.com/gensim/auto_examples/index.html##documentation))!
 
-From https://ts2.space/en/using-nltk-for-topic-modeling-and-content-categorization/
-Best Practices for Using NLTK for Topic Modeling and Content Categorization
+There is a limit to how much information can be gleaned simply from attempting to identify all the topics in a set of text passages. Therefore, I am working to implement a transformer-based analysis method that will work alongside the topic modeling. The hope is that using both can provide a blend of thematic categorization (from topic modeling) and deep semantic relationships (from the transformer model).
 
-1. Start by familiarizing yourself with the NLTK library and its capabilities. Read the documentation and tutorials to understand how to use the library and its functions.
-
-2. Pre-process your data by tokenizing, stemming, and lemmatizing it. This will help you to create a more accurate representation of the content.
-
-3. Use the Latent Dirichlet Allocation (LDA) algorithm to create topic models. This algorithm is particularly effective for text data and can help you to uncover hidden topics in your data.
-
-4. Utilize the Naive Bayes classifier to categorize your content. This algorithm is particularly effective for text data and can help you to accurately classify your content into different categories.
-
-5. Use the TF-IDF algorithm to identify the most important words in your data. This algorithm can help you to identify the key topics and themes in your data.
-
-6. Use the K-Means clustering algorithm to group similar documents together. This algorithm can help you to identify documents that are related to each other and can be used to create content categories.
-
-7. Validate your results by manually inspecting the topics and categories that have been generated. This will help you to ensure that the topics and categories are accurate and relevant.
-
-8. Experiment with different parameters and algorithms to find the best results. Try different combinations of parameters and algorithms to see which one produces the best results.
