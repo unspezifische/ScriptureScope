@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<usx version="3.0">
+  <book code="3JN" style="id">John’s Third Letter</book>
+  <para style="h">3 John</para>
+  <para style="toc1">THE THIRD EPISTLE OF JOHN</para>
+  <para style="toc2">3 John</para>
+  <para style="toc3">3Jn</para>
+  <para style="mt1">THE THIRD EPISTLE OF JOHN</para>
+  <chapter number="1" style="c" sid="3JN 1" />
+  <para style="p">
+    <verse number="1" style="v" sid="3JN 1:1" />The elder unto the wellbeloved Gaius, whom I love in the truth.<verse eid="3JN 1:1" /></para>
+  <para style="p">
+    <verse number="2" style="v" sid="3JN 1:2" />Beloved, I wish above all things that thou mayest prosper and be in health, even as thy soul prospereth. <verse eid="3JN 1:2" /><verse number="3" style="v" sid="3JN 1:3" />For I rejoiced greatly, when the brethren came and testified of the truth that is in thee, even as thou walkest in the truth. <verse eid="3JN 1:3" /><verse number="4" style="v" sid="3JN 1:4" />I have no greater joy than to hear that my children walk in truth. <verse eid="3JN 1:4" /><verse number="5" style="v" sid="3JN 1:5" />Beloved, thou doest faithfully whatsoever thou doest to the brethren, and to strangers; <verse eid="3JN 1:5" /><verse number="6" style="v" sid="3JN 1:6" />Which have borne witness of thy charity before the church: whom if thou bring forward on their journey after a godly sort, thou shalt do well: <verse eid="3JN 1:6" /><verse number="7" style="v" sid="3JN 1:7" />Because that for his name’s sake they went forth, taking nothing of the Gentiles. <verse eid="3JN 1:7" /><verse number="8" style="v" sid="3JN 1:8" />We therefore ought to receive such, that we might be fellowhelpers to the truth.<verse eid="3JN 1:8" /></para>
+  <para style="p">
+    <verse number="9" style="v" sid="3JN 1:9" />I wrote unto the church: but Diotrephes, who loveth to have the preeminence among them, receiveth us not. <verse eid="3JN 1:9" /><verse number="10" style="v" sid="3JN 1:10" />Wherefore, if I come, I will remember his deeds which he doeth, prating against us with malicious words: and not content therewith, neither doth he himself receive the brethren, and forbiddeth them that would, and casteth <char style="add">them</char> out of the church.<verse eid="3JN 1:10" /></para>
+  <para style="p">
+    <verse number="11" style="v" sid="3JN 1:11" />Beloved, follow not that which is evil, but that which is good. He that doeth good is of God: but he that doeth evil hath not seen God. <verse eid="3JN 1:11" /><verse number="12" style="v" sid="3JN 1:12" />Demetrius hath good report of all <char style="add">men</char>, and of the truth itself: yea, and we <char style="add">also</char> bear record; and ye know that our record is true.<verse eid="3JN 1:12" /></para>
+  <para style="p">
+    <verse number="13" style="v" sid="3JN 1:13" />I had many things to write, but I will not with ink and pen write unto thee: <verse eid="3JN 1:13" /><verse number="14" style="v" sid="3JN 1:14" />But I trust I shall shortly see thee, and we shall speak face to face. Peace <char style="add">be</char> to thee. <char style="add">Our</char> friends salute thee. Greet the friends by name.<verse eid="3JN 1:14" /></para>
+  <chapter eid="3JN 1" />
+</usx>
