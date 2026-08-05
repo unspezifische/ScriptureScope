@@ -1,0 +1,67 @@
+{
+  "id": "tfidf_cosine_mutual_knn_v1",
+  "displayName": "Lexical Relationships · TF-IDF Cosine Mutual kNN v1",
+  "description": "An interpretable lexical passage-relationship graph that compares normalized TF-IDF term vectors with cosine similarity, retains only mutual ten-nearest-neighbor relationships, and records the strongest shared terms for each link.",
+  "calculation": "The generator lowercased and Unicode-normalized passage text, removed a documented fixed English and archaic-function-word stop list, retained terms appearing in at least two passages and no more than 80 percent of passages, calculated sublinear term frequency and smoothed inverse document frequency, L2-normalized each sparse vector, calculated exact cosine similarity, ranked neighbors by descending similarity with passage ID as the deterministic tie-breaker, and stored each mutual 10-nearest-neighbor pair once. Existing DrL coordinates were held constant to isolate the relationship model.",
+  "methodType": "analysis-and-layout",
+  "bibleVersion": "Unknown legacy DBL-derived English corpus",
+  "corpusVersion": "legacy-firestore-gensim-snapshot-2026-08-05",
+  "generatedAt": "2026-08-05T15:20:39.950Z",
+  "representation": {
+    "id": "sublinear-tfidf-l2",
+    "version": "1.0.0",
+    "description": "Each passage is represented by a sparse, L2-normalized vector of sublinear term-frequency and smoothed inverse-document-frequency weights.",
+    "parameters": {
+      "tokenization": "unicode-letters-and-numbers-lowercase",
+      "stopWords": "fixed-scripture-scope-english-v1",
+      "minimumDocumentFrequency": 2,
+      "maximumDocumentFrequencyRatio": 0.8,
+      "termFrequency": "1-plus-natural-log-count",
+      "inverseDocumentFrequency": "natural-log((1+N)/(1+df))+1",
+      "normalization": "l2",
+      "vocabularySize": 8217
+    }
+  },
+  "relationship": {
+    "id": "tfidf-cosine-mutual-knn",
+    "version": "1.0.0",
+    "metric": "cosine-similarity",
+    "scoreKind": "similarity",
+    "scoreDirection": "higher-is-closer",
+    "linkRule": "mutual-knn",
+    "parameters": {
+      "k": 10,
+      "minimumSimilarity": null,
+      "exactSparseCalculation": true,
+      "undirected": true,
+      "minimumDegreeRescue": false,
+      "evidenceTermsPerLink": 5
+    }
+  },
+  "layout": {
+    "id": "legacy-drl-control",
+    "version": "legacy-firestore-snapshot-2026-08-05",
+    "distanceMeaning": "The x/y coordinates are the existing DrL coordinates held constant for controlled comparison; screen distance is not cosine similarity.",
+    "parameters": {
+      "sourceCollection": "nodes_DrL",
+      "heldConstantForComparison": true
+    }
+  },
+  "parameters": {
+    "nodeCount": 3016,
+    "linkCount": 8643,
+    "componentCount": 48,
+    "largestComponentNodeCount": 2967,
+    "isolatedNodeCount": 45,
+    "rejectedSourceNodeCount": 1
+  },
+  "artifacts": {
+    "nodesSha256": "0396ad65f5f666f30b3a7696ae77fbff260b78f30e3ae9ba600779214d3df415",
+    "linksSha256": "236b30cf93d5980eda788c2cb90d8bc40796843065d7ef9a1b2beb8e9ea359ce"
+  },
+  "sources": [
+    "https://nlp.stanford.edu/IR-book/",
+    "https://r.igraph.org/reference/layout_with_drl.html"
+  ]
+}
+

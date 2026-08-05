@@ -1,0 +1,21 @@
+{
+  "generatedAt": "2026-08-05T15:15:58.709Z",
+  "projectId": "scripturescope-71f88",
+  "sources": {
+    "representation": "nodes_Gensim",
+    "controlledLayout": "nodes_DrL"
+  },
+  "inputTopicNodeCount": 3017,
+  "inputLayoutNodeCount": 3017,
+  "exportedNodeCount": 3016,
+  "rejectedNodeCount": 1,
+  "rejectedRecords": [
+    {
+      "firestoreDocumentId": "-11:",
+      "id": "-11:",
+      "reason": "missing-text"
+    }
+  ],
+  "topicDimensions": 10,
+  "layoutHeldConstantForComparison": true
+}

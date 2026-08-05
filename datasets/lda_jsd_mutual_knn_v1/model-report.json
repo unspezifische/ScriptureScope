@@ -1,0 +1,34 @@
+{
+  "generatedAt": "2026-08-05T15:16:08.201Z",
+  "metric": "jensen-shannon-distance-base2-sqrt",
+  "linkRule": "mutual-knn",
+  "stats": {
+    "inputNodeCount": 3016,
+    "modeledNodeCount": 3016,
+    "rejectedNodeCount": 0,
+    "dimensions": 10,
+    "k": 10,
+    "maximumDistance": 1,
+    "comparedPairCount": 4546620,
+    "mutualLinkCount": 9797,
+    "componentCount": 135,
+    "largestComponentNodeCount": 2093,
+    "isolatedNodeCount": 96,
+    "distance": {
+      "minimum": 9.39388735143911e-8,
+      "p25": 0.0147754093580661,
+      "median": 0.0704997285136747,
+      "p75": 0.161703837686979,
+      "p95": 0.2781216203764022,
+      "maximum": 0.454439247737124,
+      "mean": 0.09844272124315816
+    },
+    "degree": {
+      "minimum": 0,
+      "median": 7,
+      "maximum": 10,
+      "mean": 6.496684350132626
+    }
+  },
+  "rejectedNodes": []
+}

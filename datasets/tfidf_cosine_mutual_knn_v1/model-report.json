@@ -1,0 +1,39 @@
+{
+  "generatedAt": "2026-08-05T15:20:39.950Z",
+  "representation": "sublinear-tf-idf-l2",
+  "metric": "cosine-similarity",
+  "linkRule": "mutual-knn",
+  "stats": {
+    "inputNodeCount": 3016,
+    "modeledNodeCount": 3016,
+    "rejectedNodeCount": 0,
+    "vocabularySize": 8217,
+    "zeroFeatureNodeCount": 0,
+    "meanTermsPerNode": 56.69893899204244,
+    "k": 10,
+    "minimumDocumentFrequency": 2,
+    "maximumDocumentFrequencyRatio": 0.8,
+    "comparedPairCount": 4546620,
+    "nonzeroPairCount": 3934125,
+    "mutualLinkCount": 8643,
+    "componentCount": 48,
+    "largestComponentNodeCount": 2967,
+    "isolatedNodeCount": 45,
+    "similarity": {
+      "minimum": 0.0801489557921934,
+      "p25": 0.1813726381133815,
+      "median": 0.220131721473261,
+      "p75": 0.28310312117807,
+      "p95": 0.49571576447698257,
+      "maximum": 1,
+      "mean": 0.2537982225616124
+    },
+    "degree": {
+      "minimum": 0,
+      "median": 6,
+      "maximum": 10,
+      "mean": 5.731432360742706
+    }
+  },
+  "rejectedNodes": []
+}

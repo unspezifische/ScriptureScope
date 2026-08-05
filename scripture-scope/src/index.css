@@ -5,6 +5,20 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: #f8fafc;
+  overscroll-behavior-x: none;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+button,
+.btn,
+.dropdown-item {
+  touch-action: manipulation;
 }
 
 code {

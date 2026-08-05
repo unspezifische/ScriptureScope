@@ -1,0 +1,24 @@
+name: Validate contributed datasets
+
+on:
+  pull_request:
+    paths:
+      - "datasets/**"
+      - "schemas/model-metadata.schema.json"
+      - "scripture-scope/scripts/validate-datasets.js"
+  push:
+    branches: [main]
+    paths:
+      - "datasets/**"
+      - "schemas/model-metadata.schema.json"
+      - "scripture-scope/scripts/validate-datasets.js"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripture-scope/scripts/validate-datasets.js

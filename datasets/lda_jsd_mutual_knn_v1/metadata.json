@@ -1,0 +1,62 @@
+{
+  "id": "lda_jsd_mutual_knn_v1",
+  "displayName": "LDA Topic Relationships · Jensen–Shannon Mutual kNN v1",
+  "description": "An experimental passage-relationship graph that compares ten-topic LDA probability mixtures with Jensen–Shannon distance and retains only relationships that appear in both passages' ten nearest-neighbor lists.",
+  "calculation": "The generator normalized each valid ten-topic vector, calculated base-2 Jensen–Shannon distance with the square root applied for all 4,546,620 passage pairs, ranked exact neighbors by ascending distance with passage ID as the deterministic tie-breaker, retained mutual 10-nearest-neighbor pairs, and stored each undirected pair once. No maximum-distance cutoff or minimum-degree rescue was applied. Existing DrL coordinates were held constant to isolate the effect of changing the relationship calculation.",
+  "methodType": "analysis-and-layout",
+  "bibleVersion": "Unknown legacy DBL-derived English corpus",
+  "corpusVersion": "legacy-firestore-gensim-snapshot-2026-08-05",
+  "generatedAt": "2026-08-05T15:16:08.201Z",
+  "representation": {
+    "id": "gensim-lda-10-legacy",
+    "version": "legacy-firestore-snapshot-2026-08-05",
+    "description": "Each passage is represented by the normalized ten-topic probability mixture exported from the live legacy Gensim collection.",
+    "parameters": {
+      "topicCount": 10,
+      "sourceCollection": "nodes_Gensim",
+      "normalization": "divide-by-vector-sum"
+    }
+  },
+  "relationship": {
+    "id": "lda-jsd-mutual-knn",
+    "version": "1.0.0",
+    "metric": "jensen-shannon-distance-base2-sqrt",
+    "scoreKind": "distance",
+    "scoreDirection": "lower-is-closer",
+    "linkRule": "mutual-knn",
+    "parameters": {
+      "k": 10,
+      "maximumDistance": null,
+      "exactAllPairs": true,
+      "undirected": true,
+      "minimumDegreeRescue": false
+    }
+  },
+  "layout": {
+    "id": "legacy-drl-control",
+    "version": "legacy-firestore-snapshot-2026-08-05",
+    "distanceMeaning": "The x/y coordinates are the existing DrL coordinates held constant for controlled comparison; screen distance is not the Jensen–Shannon relationship distance.",
+    "parameters": {
+      "sourceCollection": "nodes_DrL",
+      "heldConstantForComparison": true
+    }
+  },
+  "parameters": {
+    "nodeCount": 3016,
+    "linkCount": 9797,
+    "componentCount": 135,
+    "largestComponentNodeCount": 2093,
+    "isolatedNodeCount": 96,
+    "rejectedSourceNodeCount": 1
+  },
+  "artifacts": {
+    "nodesSha256": "0396ad65f5f666f30b3a7696ae77fbff260b78f30e3ae9ba600779214d3df415",
+    "linksSha256": "278167fb622b182c53b80febb46a08bba939b8c22d3b34ade49838ca0a1256d2"
+  },
+  "sources": [
+    "https://radimrehurek.com/gensim/models/ldamodel.html",
+    "https://doi.org/10.1109/18.61115",
+    "https://r.igraph.org/reference/layout_with_drl.html"
+  ]
+}
+

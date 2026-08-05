@@ -20,7 +20,7 @@ COPY . /project
 RUN emcc -c /project/jsoncpp/src/lib_json/*.cpp -I/project/jsoncpp/include
 
 # Build the project
-RUN emcc visualization.cpp *.o -I/project/jsoncpp/include -o visualization.js -s EXPORTED_FUNCTIONS='["_initialize", "_setData", "_render", "_onMouseClick"]' -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]' -s MODULARIZE=1 -s ENVIRONMENT=web
+RUN emcc visualization.cpp *.o -I/project/jsoncpp/include -o visualization.js -s EXPORTED_FUNCTIONS='["_initialize", "_setData", "_setNodesData", "_setLinksData", "_render", "_onMouseClick"]' -s EXPORTED_RUNTIME_METHODS='["ccall", "cwrap"]' -s MODULARIZE=1 -s ENVIRONMENT=web
 
-# Copy the output files to the host machine's scripture-scope/src directory
-RUN mkdir -p /output && cp /project/visualization.js /project/visualization.wasm /output/
+# Copy the output files to the mounted host directory at container runtime
+CMD ["sh", "-c", "mkdir -p /output && cp /project/visualization.js /project/visualization.wasm /output/"]
