@@ -9,7 +9,11 @@ import { initializeApp } from "firebase/app";
 import { getAnalytics, isSupported as isAnalyticsSupported } from "firebase/analytics";
 import { getFirestore, collection, onSnapshot } from "firebase/firestore";
 import firebaseConfig from './firebaseConfig';
-import { getAllMethodMetadata, getMethodMetadata } from './methodCatalog';
+import {
+  getAllMethodMetadata,
+  getMethodMetadata,
+  getPublishedLocalMethodMetadata,
+} from './methodCatalog';
 import {
   formatRelationshipDistance,
   getLinkEndpointId,
@@ -172,7 +176,7 @@ function MenuBar({ setSelectedMethod, handleSignInShow, handleShowRegister, sele
               ? payload.data
               : [];
 
-        const normalized = rawMethods
+        const normalizedRemoteMethods = rawMethods
           .map((method) => {
             const id = (typeof method === 'string' ? method : String(method?.id ?? method?.name ?? '')).trim();
             if (!id) return null;
@@ -200,6 +204,14 @@ function MenuBar({ setSelectedMethod, handleSignInShow, handleShowRegister, sele
             };
           })
           .filter(Boolean);
+
+        const methodsById = new Map(
+          normalizedRemoteMethods.map((method) => [method.id, method]),
+        );
+        getPublishedLocalMethodMetadata().forEach((method) => {
+          if (!methodsById.has(method.id)) methodsById.set(method.id, method);
+        });
+        const normalized = [...methodsById.values()];
 
         if (isCancelled) return;
 

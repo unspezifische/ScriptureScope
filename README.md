@@ -23,16 +23,15 @@ docker run --rm -v "$(pwd)/output:/output" cpp-wasm-builder
 cp output/visualization.js scripture-scope/public/visualization.js
 cp output/visualization.wasm scripture-scope/public/visualization.wasm
 
-# Build and deploy frontend
-cd scripture-scope
+# Build and deploy frontend from the repository root
 npm install
 npm run build
 firebase login
 firebase use scripturescope-71f88
-firebase deploy --only hosting
+npm run deploy:hosting
 ```
 
-If this is a new machine and Firebase Hosting has not been initialized in this repo yet, run this once inside `scripture-scope/` before deploying:
+If this is a new machine and Firebase Hosting has not been initialized in this repo yet, run this once from the repository root before deploying:
 
 ```bash
 firebase init hosting
@@ -114,7 +113,6 @@ Recommended PR contents:
 Use the template and complete field contract in [`datasets/README.md`](datasets/README.md). Before opening a PR, run:
 
 ```bash
-cd scripture-scope
 npm run validate:datasets
 ```
 
@@ -127,13 +125,12 @@ Maintainer workflow after merge:
 ## Blank Page Troubleshooting
 
 If Hosting shows a blank page with title "React App", check these in order:
-1. `scripture-scope/firebase.json` has `"public": "build"`.
-2. Build with environment variables available in `scripture-scope/.env` (CRA does not read the repo-root `.env` when building from `scripture-scope/`).
+1. Root `firebase.json` has `"public": "scripture-scope/build"`.
+2. Build with environment variables available in `scripture-scope/.env` (the workspace build runs inside the React package).
 3. `scripture-scope/public/visualization.js` and `scripture-scope/public/visualization.wasm` exist before `npm run build`.
 4. Rebuild and redeploy:
 
 ```bash
-cd scripture-scope
 npm run build
-firebase deploy --only hosting
+npm run deploy:hosting
 ```

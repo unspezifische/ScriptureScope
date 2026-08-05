@@ -232,3 +232,8 @@ export const getMethodMetadata = (method) => METHOD_CATALOG[method] ?? {
 };
 
 export const getAllMethodMetadata = () => Object.values(METHOD_CATALOG);
+
+export const getPublishedLocalMethodMetadata = () => [
+  METHOD_CATALOG.lda_jsd_mutual_knn_v1,
+  METHOD_CATALOG.tfidf_cosine_mutual_knn_v1,
+];

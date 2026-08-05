@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "build",
+    "public": "scripture-scope/build",
     "ignore": [
       "firebase.json",
       "**/.*",

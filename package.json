@@ -1,0 +1,17 @@
+{
+  "name": "scripture-scope-project",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "postinstall": "npm ci --prefix scripture-scope",
+    "start": "npm --prefix scripture-scope run start",
+    "build": "npm --prefix scripture-scope run build",
+    "test": "npm --prefix scripture-scope run test --",
+    "validate:datasets": "npm --prefix scripture-scope run validate:datasets",
+    "data:export-legacy-topic-corpus": "npm --prefix scripture-scope run data:export-legacy-topic-corpus",
+    "model:tfidf-links": "npm --prefix scripture-scope run model:tfidf-links",
+    "model:topic-links": "npm --prefix scripture-scope run model:topic-links",
+    "publish:datasets": "npm --prefix scripture-scope run publish:datasets",
+    "deploy:hosting": "firebase deploy --only hosting"
+  }
+}

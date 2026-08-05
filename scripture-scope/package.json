@@ -23,6 +23,7 @@
     "data:export-legacy-topic-corpus": "node scripts/export-legacy-topic-corpus.js",
     "model:tfidf-links": "node scripts/build-tfidf-links.js",
     "model:topic-links": "node scripts/build-topic-links.js",
+    "publish:datasets": "node scripts/publish-datasets-to-firestore.js --apply",
     "validate:datasets": "node scripts/validate-datasets.js",
     "test": "node --openssl-legacy-provider ./node_modules/react-scripts/scripts/test.js",
     "eject": "react-scripts eject"
