@@ -14,6 +14,7 @@
     "react-dom": "^18.3.1",
     "react-firebase-hooks": "^5.1.1",
     "react-scripts": "^3.0.1",
+    "three": "^0.152.2",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
@@ -23,7 +24,16 @@
     "data:export-legacy-topic-corpus": "node scripts/export-legacy-topic-corpus.js",
     "model:tfidf-links": "node scripts/build-tfidf-links.js",
     "model:topic-links": "node scripts/build-topic-links.js",
+    "model:bertopic": "python3 scripts/build-bertopic-dataset.py",
+    "model:bertopic-links": "python3 scripts/build-topic-model-links.py",
+    "model:lda-aligned": "python3 scripts/build-aligned-lda-dataset.py",
+    "model:topic-fusion": "python3 scripts/combine-topic-model-datasets.py",
+    "data:normalize-book-names": "python3 scripts/normalize-dataset-book-names.py",
+    "prepublish:bert-topics": "npm run validate:datasets",
+    "publish:bert-topics": "node scripts/publish-bert-topics-to-firestore.js",
     "publish:datasets": "node scripts/publish-datasets-to-firestore.js --apply",
+    "cleanup:firestore": "node scripts/cleanup-obsolete-firestore-data.js",
+    "test:bert-publisher": "node --test scripts/publish-bert-topics-to-firestore.test.js",
     "validate:datasets": "node scripts/validate-datasets.js",
     "test": "node --openssl-legacy-provider ./node_modules/react-scripts/scripts/test.js",
     "eject": "react-scripts eject"

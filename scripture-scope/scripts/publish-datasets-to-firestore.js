@@ -8,26 +8,29 @@ const { execFileSync } = require('child_process');
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const APP_ROOT = path.resolve(__dirname, '..');
 const PROJECT_ID = 'scripturescope-71f88';
-const DATASET_IDS = [
-  'lda_jsd_mutual_knn_v1',
-  'tfidf_cosine_mutual_knn_v1',
+const DATASETS = [
+  { id: 'bsb-bertopic-linked-v1', directory: path.join(PROJECT_ROOT, 'output', 'bsb-bertopic-linked-v1') },
+  { id: 'bsb-lda-aligned-v1', directory: path.join(PROJECT_ROOT, 'output', 'bsb-lda-aligned-v1') },
+  { id: 'bsb-bertopic-lda-hybrid-v1', directory: path.join(PROJECT_ROOT, 'output', 'bsb-bertopic-lda-hybrid-v1') },
 ];
-const BATCH_SIZE = 200;
+const BATCH_SIZE = 500;
+const CONCURRENT_BATCHES = 2;
 const shouldApply = process.argv.includes('--apply');
+const shouldRefreshLoadPriority = process.argv.includes('--refresh-load-priority');
+const shouldReplaceStale = process.argv.includes('--replace-stale');
 
 const readJson = (filePath) => JSON.parse(fs.readFileSync(filePath, 'utf8'));
 
 const loadFirebaseTools = () => {
   const globalModules = execFileSync('npm', ['root', '-g'], { encoding: 'utf8' }).trim();
-  const firebaseExecutable = execFileSync('which', ['firebase'], { encoding: 'utf8' }).trim();
-  const executableTarget = fs.realpathSync(firebaseExecutable);
   const candidates = [
+    path.join(PROJECT_ROOT, 'node_modules', 'firebase-tools'),
+    path.join(APP_ROOT, 'node_modules', 'firebase-tools'),
     path.join(globalModules, 'firebase-tools'),
-    path.resolve(path.dirname(executableTarget), '..', '..'),
   ];
   const toolsRoot = candidates.find((candidate) => fs.existsSync(path.join(candidate, 'lib', 'auth.js')));
   if (!toolsRoot) {
-    throw new Error('Firebase CLI is not installed globally. Install it with `npm install -g firebase-tools`.');
+    throw new Error('Firebase CLI is not installed. Install it with `npm install --no-save firebase-tools`.');
   }
   return {
     auth: require(path.join(toolsRoot, 'lib', 'auth.js')),
@@ -115,7 +118,6 @@ const writeBatch = async (collectionName, entries, accessToken) => {
       name: `projects/${PROJECT_ID}/databases/(default)/documents/${collectionName}/${encodeDocumentId(id)}`,
       fields: toFields(data),
     },
-    currentDocument: { exists: false },
   }));
   const response = await fetch(
     `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:batchWrite`,
@@ -138,23 +140,109 @@ const writeBatch = async (collectionName, entries, accessToken) => {
   }
 };
 
+const deleteBatch = async (collectionName, ids, accessToken) => {
+  const writes = ids.map((id) => ({
+    delete: `projects/${PROJECT_ID}/databases/(default)/documents/${collectionName}/${encodeDocumentId(id)}`,
+  }));
+  const response = await fetch(
+    `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:batchWrite`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ writes }),
+    },
+  );
+  if (!response.ok) throw new Error(`Stale-delete request failed for ${collectionName}: ${response.status} ${await response.text()}`);
+  const payload = await response.json();
+  const failures = (payload.status || []).filter((status) => status.code && status.code !== 0);
+  if (failures.length) throw new Error(`Firestore rejected ${failures.length} stale deletes in ${collectionName}`);
+};
+
+const updateLoadPriorityBatch = async (collectionName, entries, accessToken) => {
+  const writes = entries.map(({ id, data }) => ({
+    update: {
+      name: `projects/${PROJECT_ID}/databases/(default)/documents/${collectionName}/${encodeDocumentId(id)}`,
+      fields: { loadPriority: firestoreValue(data.loadPriority) },
+    },
+    updateMask: { fieldPaths: ['loadPriority'] },
+    currentDocument: { exists: true },
+  }));
+  const response = await fetch(
+    `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents:batchWrite`,
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ writes }),
+    },
+  );
+  if (!response.ok) throw new Error(`Priority update failed for ${collectionName}: ${response.status} ${await response.text()}`);
+  const payload = await response.json();
+  const failures = (payload.status || []).filter((status) => status.code && status.code !== 0);
+  if (failures.length) throw new Error(`Firestore rejected ${failures.length} priority updates in ${collectionName}`);
+};
+
+const runInWaves = async (entries, operation, progressLabel) => {
+  const waveSize = BATCH_SIZE * CONCURRENT_BATCHES;
+  for (let offset = 0; offset < entries.length; offset += waveSize) {
+    const wave = [];
+    for (let batchOffset = offset; batchOffset < Math.min(offset + waveSize, entries.length); batchOffset += BATCH_SIZE) {
+      wave.push(operation(entries.slice(batchOffset, batchOffset + BATCH_SIZE)));
+    }
+    await Promise.all(wave);
+    console.log(`${progressLabel}: ${Math.min(offset + waveSize, entries.length)}/${entries.length}`);
+  }
+};
+
+const median = (values) => {
+  const ordered = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(ordered.length / 2);
+  return ordered.length % 2 ? ordered[middle] : (ordered[middle - 1] + ordered[middle]) / 2;
+};
+
+const addLoadPriorities = (nodes) => {
+  const xs = nodes.map((node) => Number(node.x));
+  const ys = nodes.map((node) => Number(node.y));
+  if (!xs.every(Number.isFinite) || !ys.every(Number.isFinite)) {
+    throw new Error('Every incrementally loaded node must have finite x/y coordinates');
+  }
+  const centerX = median(xs);
+  const centerY = median(ys);
+  const xRange = Math.max(...xs) - Math.min(...xs) || 1;
+  const yRange = Math.max(...ys) - Math.min(...ys) || 1;
+  return nodes.map((node) => ({
+    ...node,
+    loadPriority: Number((
+      ((node.x - centerX) / xRange) ** 2
+      + ((node.y - centerY) / yRange) ** 2
+    ).toFixed(12)),
+  }));
+};
+
 const publishCollection = async (collectionName, entries, accessToken) => {
   const existingIds = await getExistingIds(collectionName, accessToken);
   const expectedIds = new Set(entries.map(({ id }) => String(id)));
   const unexpected = [...existingIds].filter((id) => !expectedIds.has(id));
-  if (unexpected.length > 0) {
+  if (unexpected.length > 0 && !shouldReplaceStale) {
     throw new Error(
-      `${collectionName} contains ${unexpected.length} unexpected document(s); refusing to modify it.`,
+      `${collectionName} contains ${unexpected.length} unexpected document(s); pass --replace-stale to replace them.`,
     );
   }
   const missing = entries.filter(({ id }) => !existingIds.has(String(id)));
-  console.log(`${collectionName}: ${existingIds.size} existing, ${missing.length} to create`);
+  console.log(`${collectionName}: ${existingIds.size} existing, ${missing.length} to create, ${unexpected.length} stale`);
   if (!shouldApply) return;
 
-  for (let offset = 0; offset < missing.length; offset += BATCH_SIZE) {
-    await writeBatch(collectionName, missing.slice(offset, offset + BATCH_SIZE), accessToken);
-    const completed = Math.min(offset + BATCH_SIZE, missing.length);
-    console.log(`${collectionName}: created ${completed}/${missing.length}`);
+  await runInWaves(
+    missing,
+    (batch) => writeBatch(collectionName, batch, accessToken),
+    `${collectionName}: created`,
+  );
+
+  if (unexpected.length > 0) {
+    await runInWaves(
+      unexpected,
+      (batch) => deleteBatch(collectionName, batch, accessToken),
+      `${collectionName}: removed stale`,
+    );
   }
 
   const finalIds = await getExistingIds(collectionName, accessToken);
@@ -165,15 +253,14 @@ const publishCollection = async (collectionName, entries, accessToken) => {
 };
 
 const main = async () => {
-  const datasets = DATASET_IDS.map((id) => {
-    const directory = path.join(PROJECT_ROOT, 'datasets', id);
+  const datasets = DATASETS.map(({ id, directory }) => {
     const metadata = readJson(path.join(directory, 'metadata.json'));
     if (metadata.id !== id || !metadata.description?.trim() || !metadata.calculation?.trim()) {
       throw new Error(`${id}: metadata must contain a matching id, description, and calculation`);
     }
     return {
       id,
-      nodes: readJson(path.join(directory, 'nodes.json')),
+      nodes: addLoadPriorities(readJson(path.join(directory, 'nodes.json'))),
       links: readJson(path.join(directory, 'links.json')),
     };
   });
@@ -181,11 +268,16 @@ const main = async () => {
   console.log(`${shouldApply ? 'Publishing' : 'Dry run for'} ${datasets.length} validated datasets to ${PROJECT_ID}`);
   const accessToken = await getAccessToken();
   for (const dataset of datasets) {
-    await publishCollection(
-      `nodes_${dataset.id}`,
-      dataset.nodes.map((node) => ({ id: node.id, data: node })),
-      accessToken,
-    );
+    const nodeCollectionName = `nodes_${dataset.id}`;
+    const nodeEntries = dataset.nodes.map((node) => ({ id: node.id, data: node }));
+    await publishCollection(nodeCollectionName, nodeEntries, accessToken);
+    if (shouldApply && shouldRefreshLoadPriority) {
+      await runInWaves(
+        nodeEntries,
+        (batch) => updateLoadPriorityBatch(nodeCollectionName, batch, accessToken),
+        `${nodeCollectionName}: prioritized`,
+      );
+    }
     await publishCollection(
       `links_${dataset.id}`,
       dataset.links.map((link) => ({ id: linkDocumentId(link), data: link })),

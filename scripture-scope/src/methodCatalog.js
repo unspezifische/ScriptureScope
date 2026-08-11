@@ -17,6 +17,24 @@ export const DATA_MODEL_CATALOG = {
     description: 'Each passage is represented by normalized weights for the words that are distinctive within this corpus.',
     calculation: 'ScriptureScope tokenizes normalized lowercase text, removes a fixed function-word list, uses sublinear term frequency and smoothed inverse document frequency, drops terms found in fewer than two or more than 80 percent of passages, and L2-normalizes the resulting sparse vectors.',
   },
+  bertopic_semantic_affinity_v1: {
+    id: 'bertopic_semantic_affinity_v1',
+    label: 'BERTopic semantic affinities',
+    description: 'Each BSB passage is represented by transformer-derived semantic affinities across 122 reviewed BERTopic topics.',
+    calculation: 'Passage embeddings from all-MiniLM-L6-v2 are clustered with seeded UMAP and HDBSCAN. Stored topic distributions are softmax-normalized cosine affinities to final topic centroids; they are normalized semantic scores rather than calibrated probabilities.',
+  },
+  lda_aligned_40_v1: {
+    id: 'lda_aligned_40_v1',
+    label: 'Aligned LDA · 40 lexical topics',
+    description: 'A deterministic lexical topic model fitted to the exact same 20,872 BSB passage nodes and text as the BERTopic dataset.',
+    calculation: 'Word and bigram counts are modeled with batch variational LDA using 40 topics and seed 42. Each passage is stored as a normalized topic-probability distribution.',
+  },
+  bertopic_lda_hybrid_v1: {
+    id: 'bertopic_lda_hybrid_v1',
+    label: 'BERTopic + LDA hybrid',
+    description: 'A node-aligned representation that preserves both semantic BERTopic affinities and lexical LDA topic probabilities for every passage.',
+    calculation: 'BERTopic and LDA are calculated independently on identical passage IDs and text. Their separately calculated distances are normalized to the same zero-to-one range before weighted fusion.',
+  },
 };
 
 export const RELATIONSHIP_MODEL_CATALOG = {
@@ -51,6 +69,39 @@ export const RELATIONSHIP_MODEL_CATALOG = {
     scoreMeaning: 'Higher values mean more lexical overlap after term weighting',
     description: 'Links compare interpretable lexical vectors and retain relationships that are strong from both passages’ perspectives.',
     calculation: 'Cosine similarity compares the L2-normalized TF-IDF vectors. A link is kept only when both passages rank the other among their ten nearest neighbors. Each edge also stores up to five shared terms that contribute most strongly to the similarity.',
+  },
+  bertopic_jsd_mutual_knn_v1: {
+    id: 'bertopic_jsd_mutual_knn_v1',
+    label: 'BERTopic Jensen–Shannon mutual-neighbor links',
+    metricId: 'jensen-shannon-distance-base2-sqrt',
+    metricLabel: 'BERTopic affinity distance',
+    distanceLabel: 'Semantic topic distance',
+    scoreDirection: 'lower-is-closer',
+    scoreMeaning: 'Lower values mean more similar semantic topic-affinity mixtures',
+    description: 'Links compare the 122-dimensional semantic affinity distributions produced by BERTopic.',
+    calculation: 'Candidate neighbors are found with seeded NNDescent, reranked with exact base-2 square-root Jensen–Shannon distance, and retained only when both passages place each other in their ten nearest neighbors.',
+  },
+  lda_aligned_jsd_mutual_knn_v1: {
+    id: 'lda_aligned_jsd_mutual_knn_v1',
+    label: 'Aligned LDA Jensen–Shannon mutual-neighbor links',
+    metricId: 'jensen-shannon-distance-base2-sqrt',
+    metricLabel: 'LDA topic distance',
+    distanceLabel: 'Lexical topic distance',
+    scoreDirection: 'lower-is-closer',
+    scoreMeaning: 'Lower values mean more similar lexical topic mixtures',
+    description: 'Links compare aligned 40-topic LDA distributions on the canonical BERTopic passage nodes.',
+    calculation: 'Candidate neighbors are found with seeded NNDescent, reranked with exact base-2 square-root Jensen–Shannon distance, and retained only for reciprocal top-ten pairs.',
+  },
+  bertopic_lda_weighted_jsd_v1: {
+    id: 'bertopic_lda_weighted_jsd_v1',
+    label: 'Balanced BERTopic + LDA links',
+    metricId: 'weighted-per-model-jensen-shannon-distance',
+    metricLabel: 'Combined semantic and lexical distance',
+    distanceLabel: 'Combined distance',
+    scoreDirection: 'lower-is-closer',
+    scoreMeaning: 'Lower values mean the passages are closer across both semantic and lexical topic models',
+    description: 'Links balance transformer-derived semantic affinity with word-derived LDA topic affinity.',
+    calculation: 'The edge distance is 50 percent BERTopic Jensen–Shannon distance plus 50 percent LDA Jensen–Shannon distance. Candidate unions from both models are exactly reranked, and only reciprocal top-ten links are retained.',
   },
 };
 
@@ -89,6 +140,16 @@ export const LAYOUT_CATALOG = {
     id: 'legacy_drl_control',
     label: 'Controlled DrL coordinates',
     distanceMeaning: 'The existing DrL coordinates are held constant for model comparison; screen distance is not the new relationship score.',
+  },
+  bertopic_umap_control: {
+    id: 'bertopic_umap_control',
+    label: 'Controlled BERTopic UMAP',
+    distanceMeaning: 'Coordinates are held constant across the BERTopic, aligned LDA, and hybrid views. Nearby screen positions indicate qualitative transformer-embedding similarity, not the displayed link distance.',
+  },
+  bertopic_lda_3d_projection: {
+    id: 'bertopic_lda_3d_projection',
+    label: 'Hybrid topic-cloud 3D projection',
+    distanceMeaning: 'The existing BERTopic embedding supplies x/y. A deterministic 50/50 projection of BERTopic and aligned LDA topic distributions supplies depth. Link values remain the hybrid Jensen–Shannon distance and are not geometric screen distance.',
   },
 };
 
@@ -159,6 +220,69 @@ export const METHOD_CATALOG = {
     description: 'An interpretable lexical baseline that relates passages through distinctive shared words and exposes evidence for every link.',
     calculation: 'The view compares exact TF-IDF cosine similarity and retains only mutual ten-nearest-neighbor links. Each link records up to five shared terms, while the controlled coordinates remain unchanged for comparison.',
     sources: [{ label: 'Introduction to Information Retrieval', url: 'https://nlp.stanford.edu/IR-book/' }],
+  }),
+  'bsb-bertopic-linked-v1': createMethod({
+    id: 'bsb-bertopic-linked-v1',
+    collectionKey: 'bsb-bertopic-linked-v1',
+    label: 'BERTopic semantic relationships',
+    selectorLabel: 'BERTopic · semantic mutual kNN',
+    type: 'Experimental relationship graph',
+    expectedCounts: { nodes: 20872, links: 61164 },
+    dataModelId: 'bertopic_semantic_affinity_v1',
+    relationshipModelId: 'bertopic_jsd_mutual_knn_v1',
+    layoutId: 'bertopic_umap_control',
+    description: 'The transformer-based BERTopic view with explicit reciprocal nearest-neighbor relationships between passage affinity distributions.',
+    calculation: 'The original seeded BERTopic coordinates and reviewed topic labels are retained. Exact Jensen–Shannon distances rerank approximate candidates before reciprocal top-ten link selection.',
+    sources: [{ label: 'BERTopic documentation', url: 'https://maartengr.github.io/BERTopic/' }],
+  }),
+  'bsb-lda-aligned-v1': createMethod({
+    id: 'bsb-lda-aligned-v1',
+    collectionKey: 'bsb-lda-aligned-v1',
+    label: 'Aligned LDA relationships',
+    selectorLabel: 'LDA · aligned lexical mutual kNN',
+    type: 'Experimental relationship graph',
+    expectedCounts: { nodes: 20872, links: 46789 },
+    dataModelId: 'lda_aligned_40_v1',
+    relationshipModelId: 'lda_aligned_jsd_mutual_knn_v1',
+    layoutId: 'bertopic_umap_control',
+    description: 'A 40-topic LDA graph rebuilt on exactly the same passage nodes and text as BERTopic for controlled comparison.',
+    calculation: 'LDA topic mixtures determine node colors and reciprocal Jensen–Shannon links, while BERTopic coordinates stay fixed so the model can be compared without moving the passages.',
+    sources: [{ label: 'scikit-learn LDA documentation', url: 'https://scikit-learn.org/stable/modules/decomposition.html#latentdirichletallocation' }],
+  }),
+  'bsb-bertopic-lda-hybrid-v1': createMethod({
+    id: 'bsb-bertopic-lda-hybrid-v1',
+    collectionKey: 'bsb-bertopic-lda-hybrid-v1',
+    label: 'Hybrid semantic + lexical relationships',
+    selectorLabel: 'Hybrid · BERTopic + LDA',
+    type: 'Experimental relationship graph',
+    expectedCounts: { nodes: 20872, links: 48570 },
+    dataModelId: 'bertopic_lda_hybrid_v1',
+    relationshipModelId: 'bertopic_lda_weighted_jsd_v1',
+    layoutId: 'bertopic_umap_control',
+    description: 'A balanced graph that connects passages supported by transformer semantics, lexical LDA evidence, or both.',
+    calculation: 'Each candidate edge keeps its BERTopic and LDA distances separately. Their 50/50 weighted mean determines reciprocal top-ten neighbor selection and the displayed combined distance.',
+    sources: [
+      { label: 'BERTopic documentation', url: 'https://maartengr.github.io/BERTopic/' },
+      { label: 'scikit-learn LDA documentation', url: 'https://scikit-learn.org/stable/modules/decomposition.html#latentdirichletallocation' },
+    ],
+  }),
+  'bsb-bertopic-lda-hybrid-3d-v1': createMethod({
+    id: 'bsb-bertopic-lda-hybrid-3d-v1',
+    collectionKey: 'bsb-bertopic-lda-hybrid-v1',
+    label: 'Hybrid semantic + lexical relationships in 3D',
+    selectorLabel: 'Hybrid · 3D / VR node cloud',
+    type: 'Immersive relationship graph',
+    viewDimension: '3d',
+    expectedCounts: { nodes: 20872, links: 48570 },
+    dataModelId: 'bertopic_lda_hybrid_v1',
+    relationshipModelId: 'bertopic_lda_weighted_jsd_v1',
+    layoutId: 'bertopic_lda_3d_projection',
+    description: 'An interactive 3D and WebXR view of the same hybrid passage graph, with desktop travel, immersive VR, and permission-gated passthrough AR.',
+    calculation: 'The controlled BERTopic x/y coordinates remain unchanged. Depth is a stable equal-weight projection of each passage’s BERTopic and aligned LDA probability vectors, avoiding another dataset build while exposing the hybrid model in three dimensions.',
+    sources: [
+      { label: 'WebXR Device API', url: 'https://immersive-web.github.io/webxr/' },
+      { label: 'BERTopic documentation', url: 'https://maartengr.github.io/BERTopic/' },
+    ],
   }),
   Gensim: createMethod({
     id: 'Gensim',
@@ -231,9 +355,15 @@ export const getMethodMetadata = (method) => METHOD_CATALOG[method] ?? {
   sources: [],
 };
 
-export const getAllMethodMetadata = () => Object.values(METHOD_CATALOG);
-
-export const getPublishedLocalMethodMetadata = () => [
-  METHOD_CATALOG.lda_jsd_mutual_knn_v1,
-  METHOD_CATALOG.tfidf_cosine_mutual_knn_v1,
+const ACTIVE_METHOD_IDS = [
+  'bsb-bertopic-linked-v1',
+  'bsb-lda-aligned-v1',
+  'bsb-bertopic-lda-hybrid-v1',
+  'bsb-bertopic-lda-hybrid-3d-v1',
 ];
+
+export const getAllMethodMetadata = () => (
+  ACTIVE_METHOD_IDS.map((id) => METHOD_CATALOG[id])
+);
+
+export const getPublishedLocalMethodMetadata = getAllMethodMetadata;

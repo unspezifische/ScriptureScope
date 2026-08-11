@@ -1,16 +1,25 @@
 // scripture-scope/src/App.js
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
-import { Container, Row, Col, Dropdown, DropdownButton, Modal, Button } from 'react-bootstrap';
+import { Container, Dropdown, DropdownButton, Modal, Button } from 'react-bootstrap';
 import './App.css';
+import Graph3DViewer from './Graph3DViewer';
 // import './CircularProgress.css';
 
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getAnalytics, isSupported as isAnalyticsSupported } from "firebase/analytics";
-import { getFirestore, collection, onSnapshot } from "firebase/firestore";
+import {
+  collection,
+  documentId,
+  getDocs,
+  getFirestore,
+  limit,
+  orderBy,
+  query,
+  startAfter,
+} from "firebase/firestore";
 import firebaseConfig from './firebaseConfig';
 import {
-  getAllMethodMetadata,
   getMethodMetadata,
   getPublishedLocalMethodMetadata,
 } from './methodCatalog';
@@ -35,6 +44,14 @@ isAnalyticsSupported()
 const methods_url = 'https://methods-eaqfntsdta-uc.a.run.app';
 
 const HIT_RADIUS_PX = 14;
+const NODE_PAGE_SIZE = 750;
+const LINK_PAGE_SIZE = 1500;
+const MIN_LEGEND_HEIGHT = 180;
+
+export const clampLegendHeight = (height, viewportHeight) => {
+  const maximum = Math.max(MIN_LEGEND_HEIGHT, Math.min(600, viewportHeight - 140));
+  return Math.min(maximum, Math.max(MIN_LEGEND_HEIGHT, height));
+};
 
 const getGroupColor = (group) => {
   const label = String(group ?? 'Uncategorized');
@@ -152,10 +169,194 @@ const findNearestProjectedNode = (projectedNodes, pointX, pointY, hitRadius = HI
   return closest;
 };
 
-function MenuBar({ setSelectedMethod, handleSignInShow, handleShowRegister, selectedMethod }) {
+const BOOK_ALIASES = {
+  gen: 'genesis',
+  exo: 'exodus',
+  lev: 'leviticus',
+  num: 'numbers',
+  deu: 'deuteronomy',
+  jos: 'joshua',
+  jdg: 'judges',
+  rut: 'ruth',
+  '1sa': '1samuel',
+  '2sa': '2samuel',
+  '1ki': '1kings',
+  '2ki': '2kings',
+  '1ch': '1chronicles',
+  '2ch': '2chronicles',
+  ezr: 'ezra',
+  neh: 'nehemiah',
+  est: 'esther',
+  job: 'job',
+  pro: 'proverbs',
+  ecc: 'ecclesiastes',
+  sng: 'songofsolomon',
+  isa: 'isaiah',
+  jer: 'jeremiah',
+  lam: 'lamentations',
+  ezk: 'ezekiel',
+  dan: 'daniel',
+  hos: 'hosea',
+  jol: 'joel',
+  amo: 'amos',
+  oba: 'obadiah',
+  jon: 'jonah',
+  mic: 'micah',
+  nam: 'nahum',
+  hab: 'habakkuk',
+  zep: 'zephaniah',
+  hag: 'haggai',
+  zec: 'zechariah',
+  mal: 'malachi',
+  mat: 'matthew',
+  mrk: 'mark',
+  luk: 'luke',
+  jn: 'john',
+  jhn: 'john',
+  act: 'acts',
+  rom: 'romans',
+  '1co': '1corinthians',
+  '2co': '2corinthians',
+  gal: 'galatians',
+  eph: 'ephesians',
+  col: 'colossians',
+  '1th': '1thessalonians',
+  '2th': '2thessalonians',
+  '1ti': '1timothy',
+  '2ti': '2timothy',
+  tit: 'titus',
+  phm: 'philemon',
+  heb: 'hebrews',
+  jas: 'james',
+  '1pe': '1peter',
+  '2pe': '2peter',
+  '1jn': '1john',
+  '2jn': '2john',
+  '3jn': '3john',
+  jud: 'jude',
+  rev: 'revelation',
+  lk: 'luke',
+  mk: 'mark',
+  mt: 'matthew',
+  phil: 'philippians',
+  phlp: 'philippians',
+  php: 'philippians',
+  ps: 'psalms',
+  psa: 'psalms',
+  psalm: 'psalms',
+  sos: 'song',
+  songofsolomon: 'song',
+  songofsongs: 'song',
+};
+
+const normalizeBookName = (value) => {
+  const normalized = String(value ?? '')
+    .toLowerCase()
+    .replace(/\./g, '')
+    .replace(/^iii\s+/, '3 ')
+    .replace(/^ii\s+/, '2 ')
+    .replace(/^i\s+/, '1 ')
+    .replace(/\s+/g, '')
+    .trim();
+  return BOOK_ALIASES[normalized] ?? normalized;
+};
+
+const referenceKey = (value) => String(value ?? '')
+  .normalize('NFKD')
+  .toLowerCase()
+  .replace(/[–—]/g, '-')
+  .replace(/[^a-z0-9]/g, '');
+
+const parsePassageReference = (value) => {
+  const normalized = String(value ?? '')
+    .normalize('NFKD')
+    .replace(/[–—]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!normalized) return null;
+
+  const verseMatch = normalized.match(
+    /^(.+?[A-Za-z])\s*(\d+):(\d+)(?:\s*-\s*(?:(\d+):)?(?::)?(\d+))?$/,
+  );
+  if (verseMatch) {
+    const startChapter = Number(verseMatch[2]);
+    const startVerse = Number(verseMatch[3]);
+    const endChapter = verseMatch[4] ? Number(verseMatch[4]) : startChapter;
+    const endVerse = verseMatch[5] ? Number(verseMatch[5]) : startVerse;
+    return {
+      book: normalizeBookName(verseMatch[1]),
+      start: startChapter * 1000 + startVerse,
+      end: endChapter * 1000 + endVerse,
+      chapterOnly: false,
+    };
+  }
+
+  const chapterMatch = normalized.match(/^(.+?[A-Za-z])\s*(\d+)$/);
+  if (!chapterMatch) return null;
+  const chapter = Number(chapterMatch[2]);
+  return {
+    book: normalizeBookName(chapterMatch[1]),
+    start: chapter * 1000,
+    end: chapter * 1000 + 999,
+    chapterOnly: true,
+  };
+};
+
+const bookNamesMatch = (queryBook, nodeBook) => (
+  queryBook === nodeBook
+  || (queryBook.length >= 3 && nodeBook.startsWith(queryBook))
+);
+
+export const findPassageNode = (nodes, query) => {
+  const candidates = Array.isArray(nodes) ? nodes : [];
+  const queryKey = referenceKey(query);
+  if (!queryKey) return null;
+
+  const exactMatch = candidates.find((node) => referenceKey(node?.id) === queryKey);
+  if (exactMatch) return exactMatch;
+
+  const parsedQuery = parsePassageReference(query);
+  if (parsedQuery) {
+    const containingRanges = candidates
+      .map((node) => ({ node, reference: parsePassageReference(node?.id) }))
+      .filter(({ reference }) => (
+        reference
+        && bookNamesMatch(parsedQuery.book, reference.book)
+        && reference.start <= parsedQuery.start
+        && reference.end >= parsedQuery.end
+      ))
+      .sort((first, second) => (
+        (first.reference.end - first.reference.start)
+        - (second.reference.end - second.reference.start)
+      ));
+    if (containingRanges.length > 0) return containingRanges[0].node;
+
+    if (parsedQuery.chapterOnly) {
+      const chapterRanges = candidates
+        .map((node) => ({ node, reference: parsePassageReference(node?.id) }))
+        .filter(({ reference }) => (
+          reference
+          && bookNamesMatch(parsedQuery.book, reference.book)
+          && reference.start <= parsedQuery.end
+          && reference.end >= parsedQuery.start
+        ))
+        .sort((first, second) => (
+          (first.reference.end - first.reference.start)
+          - (second.reference.end - second.reference.start)
+          || first.reference.start - second.reference.start
+        ));
+      return chapterRanges[0]?.node ?? null;
+    }
+
+    return null;
+  }
+
+  return candidates.find((node) => referenceKey(node?.id).includes(queryKey)) ?? null;
+};
+
+function MenuBar({ setSelectedMethod, handleAccountShow, selectedMethod }) {
   const [methods, setMethods] = useState([]);
   const [methodsError, setMethodsError] = useState('');
-  const [showMethodInfo, setShowMethodInfo] = useState(false);
 
   useEffect(() => {
     let isCancelled = false;
@@ -176,6 +377,7 @@ function MenuBar({ setSelectedMethod, handleSignInShow, handleShowRegister, sele
               ? payload.data
               : [];
 
+        const activeMethodIds = new Set(getPublishedLocalMethodMetadata().map((method) => method.id));
         const normalizedRemoteMethods = rawMethods
           .map((method) => {
             const id = (typeof method === 'string' ? method : String(method?.id ?? method?.name ?? '')).trim();
@@ -203,7 +405,7 @@ function MenuBar({ setSelectedMethod, handleSignInShow, handleShowRegister, sele
               layout: remoteMetadata.layout || fallback.layout,
             };
           })
-          .filter(Boolean);
+          .filter((method) => method && activeMethodIds.has(method.id));
 
         const methodsById = new Map(
           normalizedRemoteMethods.map((method) => [method.id, method]),
@@ -237,7 +439,6 @@ function MenuBar({ setSelectedMethod, handleSignInShow, handleShowRegister, sele
 
   const selectedMetadata = methods.find((method) => method.id === selectedMethod)
     ?? getMethodMetadata(selectedMethod || 'Method');
-  const displayedMethods = methods.length > 0 ? methods : getAllMethodMetadata();
   const relationshipViews = methods.filter((method) => method.hasRelationships);
   const analysisPreviews = methods.filter((method) => !method.hasRelationships);
 
@@ -245,12 +446,11 @@ function MenuBar({ setSelectedMethod, handleSignInShow, handleShowRegister, sele
     <>
     <div className="app-topbar">
       <Container fluid>
-        <Row className="align-items-center app-topbar-row">
-          <Col xs={12} md={4} className="app-brand">
+        <div className="app-topbar-shell">
+          <div className="app-brand">
             <h1>ScriptureScope</h1>
-            <p>Explore passage relationships and layouts</p>
-          </Col>
-          <Col xs={12} md={4} className="method-control">
+          </div>
+          <div className="method-control">
             <div className="method-selector-group">
             <DropdownButton
               id="method-selector"
@@ -279,88 +479,17 @@ function MenuBar({ setSelectedMethod, handleSignInShow, handleShowRegister, sele
                   </Dropdown.Item>
                 ))}
             </DropdownButton>
-            <div className="method-help-control">
-              <button
-                type="button"
-                className="method-info-button"
-                aria-label={`Learn how ${selectedMetadata.label} is calculated`}
-                title={`${selectedMetadata.label}: ${selectedMetadata.description}`}
-                onClick={() => setShowMethodInfo(true)}
-              >
-                i
-              </button>
-              <div className="method-hover-card" role="tooltip">
-                <strong>{selectedMetadata.label}</strong>
-                <span>{selectedMetadata.description}</span>
-                <small>Click for calculation details.</small>
-              </div>
             </div>
-            </div>
-          </Col>
-          <Col xs={12} md={4} className="account-actions-column">
-            <div className="account-actions">
-              <Button variant="outline-light" onClick={handleSignInShow}>Sign In</Button>
-              <Button variant="primary" onClick={handleShowRegister}>Register</Button>
-            </div>
-          </Col>
-        </Row>
+          </div>
+          <div className="account-actions-column">
+            <Button className="account-button" variant="outline-light" onClick={handleAccountShow}>
+              Account
+            </Button>
+          </div>
+        </div>
         {methodsError && <p style={{ marginTop: '8px', color: '#fda4af' }}>{methodsError}</p>}
       </Container>
     </div>
-    <Modal
-      show={showMethodInfo}
-      onHide={() => setShowMethodInfo(false)}
-      centered
-      scrollable
-      size="lg"
-      className="method-info-modal"
-    >
-      <Modal.Header closeButton>
-        <Modal.Title>What the models and distances mean</Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        <p className="method-modal-intro">
-          A text model represents each passage, a relationship calculation decides which passages are linked, and a layout chooses their screen positions. Screen distance is not automatically the relationship score.
-        </p>
-        <div className="method-explanation-list">
-          {displayedMethods.map((method) => (
-            <article
-              key={method.id}
-              className={`method-explanation${method.id === selectedMethod ? ' is-selected' : ''}`}
-            >
-              <div className="method-explanation-heading">
-                <h3>{method.label}</h3>
-                <span>{method.type || 'Data method'}</span>
-              </div>
-              <p>{method.description}</p>
-              {method.dataModel && (
-                <p><strong>Data representation — {method.dataModel.label}:</strong> {method.dataModel.description}</p>
-              )}
-              {method.relationshipModel ? (
-                <p><strong>Relationship — {method.relationshipModel.metricLabel}:</strong> {method.relationshipModel.calculation}</p>
-              ) : (
-                <p><strong>Relationship:</strong> This preview does not contain passage-to-passage links.</p>
-              )}
-              {method.layout && (
-                <p><strong>Layout — {method.layout.label}:</strong> {method.layout.distanceMeaning}</p>
-              )}
-              <p><strong>View calculation:</strong> {method.calculation}</p>
-              {Array.isArray(method.sources) && method.sources.length > 0 && (
-                <p className="method-sources">
-                  <strong>Learn more:</strong>{' '}
-                  {method.sources.map((source, index) => (
-                    <React.Fragment key={source.url}>
-                      {index > 0 && ', '}
-                      <a href={source.url} target="_blank" rel="noopener noreferrer">{source.label}</a>
-                    </React.Fragment>
-                  ))}
-                </p>
-              )}
-            </article>
-          ))}
-        </div>
-      </Modal.Body>
-    </Modal>
     </>
   );
 }
@@ -368,8 +497,8 @@ function MenuBar({ setSelectedMethod, handleSignInShow, handleShowRegister, sele
 function App() {
   const [rawNodes, setRawNodes] = useState([]);
   const [rawLinks, setRawLinks] = useState([]);
-  const [showModal, setShowModal] = useState(false);
-  const [showSignInModal, setShowSignInModal] = useState(false);
+  const [showAccountModal, setShowAccountModal] = useState(false);
+  const [accountMode, setAccountMode] = useState('login');
   const canvasRef = useRef(null);
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0, offsetX: 0, offsetY: 0 });
@@ -385,6 +514,51 @@ function App() {
   const projectedNodesRef = useRef([]);
   const [isCanvasInteracting, setIsCanvasInteracting] = useState(false);
   const [isLegendExpanded, setIsLegendExpanded] = useState(false);
+  const [legendHeight, setLegendHeight] = useState(320);
+  const legendResizeRef = useRef(null);
+  const [hiddenGroups, setHiddenGroups] = useState(() => new Set());
+
+  const resizeLegendBy = useCallback((amount) => {
+    setLegendHeight((current) => clampLegendHeight(current + amount, window.innerHeight));
+  }, []);
+
+  const handleLegendResizePointerDown = useCallback((event) => {
+    event.preventDefault();
+    legendResizeRef.current = {
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      startHeight: legendHeight,
+    };
+    if (typeof event.currentTarget.setPointerCapture === 'function') {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+  }, [legendHeight]);
+
+  const handleLegendResizePointerMove = useCallback((event) => {
+    const resize = legendResizeRef.current;
+    if (!resize || resize.pointerId !== event.pointerId) return;
+    setLegendHeight(clampLegendHeight(
+      resize.startHeight + resize.startY - event.clientY,
+      window.innerHeight,
+    ));
+  }, []);
+
+  const handleLegendResizePointerEnd = useCallback((event) => {
+    if (legendResizeRef.current?.pointerId !== event.pointerId) return;
+    legendResizeRef.current = null;
+    if (typeof event.currentTarget.releasePointerCapture === 'function') {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }, []);
+
+  const handleLegendResizeKeyDown = useCallback((event) => {
+    if (event.key === 'ArrowUp') resizeLegendBy(24);
+    else if (event.key === 'ArrowDown') resizeLegendBy(-24);
+    else if (event.key === 'Home') setLegendHeight(MIN_LEGEND_HEIGHT);
+    else if (event.key === 'End') setLegendHeight(clampLegendHeight(10000, window.innerHeight));
+    else return;
+    event.preventDefault();
+  }, [resizeLegendBy]);
 
   const commitViewTransform = useCallback((nextTransform) => {
     const current = pendingViewTransformRef.current ?? viewTransformRef.current;
@@ -407,16 +581,22 @@ function App() {
     }
   }, []);
 
-  const handleCloseRegister = () => setShowModal(false);
-  const handleShowRegister = () => setShowModal(true);
-
-  const handleSignInClose = () => setShowSignInModal(false);
-  const handleSignInShow = () => setShowSignInModal(true);
+  const handleAccountShow = () => setShowAccountModal(true);
+  const handleAccountClose = () => setShowAccountModal(false);
 
   const registerWithEmail = (email, password) => {/*...*/};
   const signInWithEmail = (email, password) => {/*...*/};
   const registerWithGoogle = () => {/*...*/};
   const signInWithGoogle = () => {/*...*/};
+
+  const handleAccountSubmit = (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const email = formData.get('email');
+    const password = formData.get('password');
+    if (accountMode === 'signup') registerWithEmail(email, password);
+    else signInWithEmail(email, password);
+  };
 
   const [selectedMethod, setSelectedMethod] = useState('');
   const onMethodChange = (method) => setSelectedMethod(method);
@@ -424,12 +604,21 @@ function App() {
     () => getMethodMetadata(selectedMethod || 'Method'),
     [selectedMethod],
   );
+  const isThreeDimensionalView = selectedMethodMetadata.viewDimension === '3d';
   const [selectedNode, setSelectedNode] = useState(null);
+  const [passageQuery, setPassageQuery] = useState('');
+  const [passageSearchMessage, setPassageSearchMessage] = useState('');
+  const [pendingFocusNodeId, setPendingFocusNodeId] = useState('');
   const [hoveredNode, setHoveredNode] = useState(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [elapsedTime, setElapsedTime] = useState(0);
   const [isLoadingGraph, setIsLoadingGraph] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState({ nodes: 0, links: 0 });
   const [graphError, setGraphError] = useState('');
+
+  useEffect(() => {
+    document.title = selectedMethod ? `ScriptureScope - ${selectedMethod}` : 'ScriptureScope';
+  }, [selectedMethod]);
 
   useEffect(() => {
     if (!selectedMethod) return;
@@ -437,10 +626,14 @@ function App() {
     setRawNodes([]);
     setRawLinks([]);
     setSelectedNode(null);
+    setPassageSearchMessage('');
+    setPendingFocusNodeId('');
     setHoveredNode(null);
     commitViewTransform({ scale: 1, offsetX: 0, offsetY: 0 });
     setIsLegendExpanded(false);
+    setHiddenGroups(new Set());
     setElapsedTime(0);
+    setLoadingProgress({ nodes: 0, links: 0 });
     setIsLoadingGraph(true);
     setGraphError('');
 
@@ -449,65 +642,72 @@ function App() {
       setElapsedTime((Date.now() - startedAt) / 1000);
     }, 100);
 
-    let nodesReady = false;
-    let linksReady = false;
-
-    const markLoadedIfReady = () => {
-      if (nodesReady && linksReady) {
-        clearInterval(timerId);
-        setElapsedTime((Date.now() - startedAt) / 1000);
-        setIsLoadingGraph(false);
-      }
-    };
+    let isCancelled = false;
 
     const db = getFirestore();
     const collectionKey = selectedMethodMetadata.collectionKey || selectedMethod;
     const nodesCollection = collection(db, `nodes_${collectionKey}`);
     const linksCollection = collection(db, `links_${collectionKey}`);
 
-    const nodesUnsubscribe = onSnapshot(
-      nodesCollection,
-      (snapshot) => {
-        setRawNodes(snapshot.docs.map((doc) => {
+    const loadPages = async ({ reference, pageSize, ordering, onPage }) => {
+      let cursor = null;
+      while (!isCancelled) {
+        const constraints = [ordering];
+        if (cursor) constraints.push(startAfter(cursor));
+        constraints.push(limit(pageSize));
+        const snapshot = await getDocs(query(reference, ...constraints));
+        if (isCancelled || snapshot.empty) return;
+        onPage(snapshot.docs);
+        cursor = snapshot.docs[snapshot.docs.length - 1];
+        if (snapshot.size < pageSize) return;
+        // Let React paint each completed page even when Firestore serves the next page from cache.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    };
+
+    const loadNodes = loadPages({
+      reference: nodesCollection,
+      pageSize: NODE_PAGE_SIZE,
+      ordering: orderBy('loadPriority', 'asc'),
+      onPage: (documents) => {
+        const page = documents.map((doc) => {
           const data = doc.data();
           return { ...data, id: data.id ?? doc.id };
-        }));
-        if (!nodesReady) {
-          nodesReady = true;
-          markLoadedIfReady();
-        }
+        });
+        setRawNodes((current) => [...current, ...page]);
+        setLoadingProgress((current) => ({ ...current, nodes: current.nodes + page.length }));
       },
-      (error) => {
+    }).catch((error) => {
+      if (!isCancelled) {
         setGraphError((current) => current || `Unable to load nodes for ${selectedMethod}: ${error.message}`);
-        if (!nodesReady) {
-          nodesReady = true;
-          markLoadedIfReady();
-        }
-      },
-    );
+      }
+    });
 
-    const linksUnsubscribe = onSnapshot(
-      linksCollection,
-      (snapshot) => {
-        setRawLinks(snapshot.docs.map((doc) => doc.data()));
-        if (!linksReady) {
-          linksReady = true;
-          markLoadedIfReady();
-        }
+    const loadLinks = loadPages({
+      reference: linksCollection,
+      pageSize: LINK_PAGE_SIZE,
+      ordering: orderBy(documentId()),
+      onPage: (documents) => {
+        const page = documents.map((doc) => doc.data());
+        setRawLinks((current) => [...current, ...page]);
+        setLoadingProgress((current) => ({ ...current, links: current.links + page.length }));
       },
-      (error) => {
+    }).catch((error) => {
+      if (!isCancelled) {
         setGraphError((current) => current || `Unable to load links for ${selectedMethod}: ${error.message}`);
-        if (!linksReady) {
-          linksReady = true;
-          markLoadedIfReady();
-        }
-      },
-    );
+      }
+    });
+
+    Promise.all([loadNodes, loadLinks]).then(() => {
+      if (isCancelled) return;
+      clearInterval(timerId);
+      setElapsedTime((Date.now() - startedAt) / 1000);
+      setIsLoadingGraph(false);
+    });
 
     return () => {
+      isCancelled = true;
       clearInterval(timerId);
-      nodesUnsubscribe();
-      linksUnsubscribe();
       setIsLoadingGraph(false);
     };
   }, [commitViewTransform, selectedMethod, selectedMethodMetadata.collectionKey]);
@@ -535,7 +735,7 @@ function App() {
       resizeObserver.disconnect();
       window.removeEventListener('resize', updateCanvasSize);
     };
-  }, []);
+  }, [isThreeDimensionalView]);
 
   const normalizedGraph = useMemo(
     () => normalizeGraphData(rawNodes, rawLinks, {
@@ -548,9 +748,16 @@ function App() {
   );
   const { nodes, links, stats: graphStats } = normalizedGraph;
 
-  const displayNodes = useMemo(
+  const allDisplayNodes = useMemo(
     () => nodes.map(prepareNodeForGraph),
     [nodes],
+  );
+
+  const displayNodes = useMemo(
+    () => allDisplayNodes.filter(
+      (node) => !hiddenGroups.has(String(node.group ?? 'Uncategorized')),
+    ),
+    [allDisplayNodes, hiddenGroups],
   );
 
   const projectedNodes = useMemo(
@@ -566,6 +773,38 @@ function App() {
     }
     return map;
   }, [projectedNodes]);
+
+  useEffect(() => {
+    if (isThreeDimensionalView) return undefined;
+    if (!pendingFocusNodeId) return undefined;
+
+    let secondFrameId;
+    const firstFrameId = window.requestAnimationFrame(() => {
+      secondFrameId = window.requestAnimationFrame(() => {
+        const projected = projectedNodesRef.current.find(
+          (item) => item.id === pendingFocusNodeId,
+        );
+        const canvas = canvasRef.current;
+        if (!projected || !canvas) {
+          setPendingFocusNodeId('');
+          return;
+        }
+
+        const scale = Math.max(viewTransformRef.current.scale, 3);
+        commitViewTransform({
+          scale,
+          offsetX: canvas.width / 2 - projected.x * scale,
+          offsetY: canvas.height / 2 - projected.y * scale,
+        });
+        setPendingFocusNodeId('');
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(firstFrameId);
+      if (secondFrameId) window.cancelAnimationFrame(secondFrameId);
+    };
+  }, [commitViewTransform, isThreeDimensionalView, pendingFocusNodeId, projectedNodeMap]);
 
   const transformToScreen = useCallback((worldX, worldY) => ({
     x: worldX * viewTransform.scale + viewTransform.offsetX,
@@ -960,6 +1199,29 @@ function App() {
     commitViewTransform({ scale: 1, offsetX: 0, offsetY: 0 });
   };
 
+  const focusNode = (node) => {
+    setSelectedNode(isThreeDimensionalView ? null : node);
+    setPendingFocusNodeId(normalizeGraphId(node.id));
+  };
+
+  const handlePassageSearch = (event) => {
+    event.preventDefault();
+    const query = passageQuery.trim();
+    if (!query) {
+      setPassageSearchMessage('Enter a passage reference, such as John 3:16.');
+      return;
+    }
+
+    const match = findPassageNode(displayNodes, query);
+    if (!match) {
+      setPassageSearchMessage(`No passage containing “${query}” was found in this graph.`);
+      return;
+    }
+
+    focusNode(match);
+    setPassageSearchMessage(`Centered on ${match.id}.`);
+  };
+
   const nodeMapById = useMemo(() => {
     const map = new Map();
     for (const node of displayNodes) {
@@ -999,7 +1261,7 @@ function App() {
 
   const legendItems = useMemo(() => {
     const counts = new Map();
-    for (const node of displayNodes) {
+    for (const node of allDisplayNodes) {
       const group = String(node.group ?? 'Uncategorized');
       counts.set(group, (counts.get(group) ?? 0) + 1);
     }
@@ -1011,7 +1273,30 @@ function App() {
         count,
         color: getGroupColor(group),
       }));
-  }, [displayNodes]);
+  }, [allDisplayNodes]);
+
+  const toggleGroupVisibility = useCallback((group) => {
+    setHiddenGroups((current) => {
+      const next = new Set(current);
+      if (next.has(group)) next.delete(group);
+      else next.add(group);
+      return next;
+    });
+  }, []);
+
+  const showAllGroups = useCallback(() => setHiddenGroups(new Set()), []);
+
+  const hideAllGroups = useCallback(() => {
+    setHiddenGroups(new Set(legendItems.map((item) => item.group)));
+    setSelectedNode(null);
+    setHoveredNode(null);
+  }, [legendItems]);
+
+  useEffect(() => {
+    if (selectedNode && hiddenGroups.has(String(selectedNode.group ?? 'Uncategorized'))) {
+      setSelectedNode(null);
+    }
+  }, [hiddenGroups, selectedNode]);
 
   const projectedTopicNodeCount = useMemo(
     () => displayNodes.filter((node) => node.usesProjectedTopicLayout).length,
@@ -1051,74 +1336,163 @@ function App() {
     return '';
   }, [graphError, graphStats, isLoadingGraph, links.length, nodes.length, projectedNodes.length, projectedTopicNodeCount, selectedMethod]);
 
+  const expectedNodeCount = selectedMethodMetadata.expectedCounts?.nodes ?? loadingProgress.nodes;
+  const expectedLinkCount = selectedMethodMetadata.expectedCounts?.links ?? loadingProgress.links;
+  const expectedDocumentCount = expectedNodeCount + expectedLinkCount;
+  const loadedDocumentCount = Math.min(loadingProgress.nodes, expectedNodeCount)
+    + Math.min(loadingProgress.links, expectedLinkCount);
+  const loadingPercent = isLoadingGraph && expectedDocumentCount > 0
+    ? Math.min(99, Math.floor((loadedDocumentCount / expectedDocumentCount) * 100))
+    : selectedMethod ? 100 : 0;
+
   return (
     <div className="app-root">
-      <Modal show={showModal} onHide={handleCloseRegister}>
+      <Modal show={showAccountModal} onHide={handleAccountClose} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Register</Modal.Title>
+          <Modal.Title>{accountMode === 'login' ? 'Log In' : 'Sign Up'}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Button onClick={() => registerWithEmail('email', 'password')}>Register with Email</Button>
-          <Button onClick={registerWithGoogle}>Register with Google</Button>
-        </Modal.Body>
-      </Modal>
-      <Modal show={showSignInModal} onHide={handleSignInClose}>
-        <Modal.Header closeButton>
-          <Modal.Title>Sign In</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Button onClick={() => signInWithEmail('email', 'password')}>Sign In with Email</Button>
-          <Button onClick={signInWithGoogle}>Sign In with Google</Button>
+          <div className="account-mode-switch" role="group" aria-label="Account mode">
+            <button
+              type="button"
+              aria-pressed={accountMode === 'login'}
+              className={accountMode === 'login' ? 'is-active' : ''}
+              onClick={() => setAccountMode('login')}
+            >
+              Log In
+            </button>
+            <button
+              type="button"
+              aria-pressed={accountMode === 'signup'}
+              className={accountMode === 'signup' ? 'is-active' : ''}
+              onClick={() => setAccountMode('signup')}
+            >
+              Sign Up
+            </button>
+          </div>
+          <form className="account-form" onSubmit={handleAccountSubmit}>
+            <label htmlFor="account-email">Email</label>
+            <input id="account-email" name="email" type="email" autoComplete="email" required />
+            <label htmlFor="account-password">Password</label>
+            <input
+              id="account-password"
+              name="password"
+              type="password"
+              minLength="6"
+              autoComplete={accountMode === 'login' ? 'current-password' : 'new-password'}
+              required
+            />
+            <Button type="submit" variant="primary">
+              {accountMode === 'login' ? 'Log In' : 'Create Account'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline-secondary"
+              onClick={accountMode === 'login' ? signInWithGoogle : registerWithGoogle}
+            >
+              Continue with Google
+            </Button>
+          </form>
         </Modal.Body>
       </Modal>
 
       <header>
           <MenuBar
             setSelectedMethod={onMethodChange}
-            handleSignInShow={handleSignInShow}
-            handleShowRegister={handleShowRegister}
+            handleAccountShow={handleAccountShow}
             selectedMethod={selectedMethod}
           />
-          <div className="graph-status" role="status" aria-live="polite">
-          <p>
-            {isLoadingGraph
-              ? `Load time: ${elapsedTime.toFixed(2)} seconds (loading...)`
-              : `Load time: ${elapsedTime.toFixed(2)} seconds`}
-          </p>
-          <p className="graph-instructions desktop-instructions">
-            Drag to pan, scroll to zoom, click a node for details.
-          </p>
-          <p className="graph-instructions touch-instructions">
-            Drag to pan, pinch or use the controls to zoom, tap a node for details.
-          </p>
-          {selectedMethodMetadata.relationshipModel && (
-            <p className="relationship-definition">
-              <strong>Links:</strong>{' '}
-              {selectedMethodMetadata.relationshipModel.metricLabel}. {selectedMethodMetadata.relationshipModel.scoreMeaning}; screen distance comes from the {selectedMethodMetadata.layout?.label || 'selected'} layout.
-            </p>
-          )}
-          {graphNotice && (
-            <p className={`graph-data-notice${graphError ? ' is-error' : ''}`}>{graphNotice}</p>
-          )}
-          </div>
       </header>
       <main className={`graph-layout${selectedNode ? ' has-details' : ''}`}>
         <section className="graph-workspace" aria-label="Verse relationship graph">
           <div className="canvas-shell">
-            <canvas
-              id="graph-canvas"
-              ref={canvasRef}
-              width="1200"
-              height="800"
-              className="visualization-canvas"
-              aria-label="Interactive verse relationship graph. Drag to pan and select a node to view details."
-            />
+            {isThreeDimensionalView ? (
+              <Graph3DViewer
+                nodes={displayNodes}
+                links={links}
+                focusNodeId={pendingFocusNodeId}
+                onFocusHandled={() => setPendingFocusNodeId('')}
+              />
+            ) : (
+              <canvas
+                id="graph-canvas"
+                ref={canvasRef}
+                width="1200"
+                height="800"
+                className="visualization-canvas"
+                aria-label="Interactive verse relationship graph. Drag to pan and select a node to view details."
+              />
+            )}
 
-            <div className="canvas-controls" aria-label="Graph zoom controls">
-              <button type="button" onClick={() => zoomCanvas(1.2)} aria-label="Zoom in">+</button>
-              <button type="button" onClick={() => zoomCanvas(0.8)} aria-label="Zoom out">−</button>
-              <button type="button" className="reset-view-button" onClick={resetCanvasView}>Reset</button>
+            <div className="graph-toolbar">
+              <div className="canvas-search-control">
+                <form
+                  className="passage-search-form"
+                  role="search"
+                  aria-label="Find a passage in the graph"
+                  onSubmit={handlePassageSearch}
+                >
+                  <label className="visually-hidden" htmlFor="passage-search-input">Find passage</label>
+                  <input
+                    id="passage-search-input"
+                    type="search"
+                    inputMode="search"
+                    value={passageQuery}
+                    placeholder="Find passage…"
+                    autoComplete="off"
+                    onChange={(event) => {
+                      setPassageQuery(event.target.value);
+                      if (passageSearchMessage) setPassageSearchMessage('');
+                    }}
+                  />
+                  <button type="submit" disabled={isLoadingGraph || displayNodes.length === 0}>
+                    Find
+                  </button>
+                </form>
+                {passageSearchMessage && (
+                  <p className="passage-search-message" role="status" aria-live="polite">
+                    {passageSearchMessage}
+                  </p>
+                )}
+              </div>
+              {!isThreeDimensionalView && (
+                <div className="canvas-controls" aria-label="Graph zoom controls">
+                  <button type="button" onClick={() => zoomCanvas(1.2)} aria-label="Zoom in">+</button>
+                  <button type="button" onClick={() => zoomCanvas(0.8)} aria-label="Zoom out">−</button>
+                  <button type="button" className="reset-view-button" onClick={resetCanvasView}>Reset</button>
+                </div>
+              )}
             </div>
+
+            {selectedMethod && (
+              <div
+                className={`graph-loading-indicator${isLoadingGraph ? '' : ' is-loaded'}`}
+                role="status"
+                aria-live="polite"
+              >
+                <span className={`graph-progress-ring${isLoadingGraph ? '' : ' is-complete'}`} aria-hidden="true">
+                  {isLoadingGraph && <span className="loading-spinner" />}
+                  <span className="graph-progress-percent">{loadingPercent}%</span>
+                </span>
+                <span className="visually-hidden">{isLoadingGraph ? 'Loading graph' : 'Graph loaded'}</span>
+                <span className="graph-load-copy" aria-hidden="true">
+                  <span>{isLoadingGraph ? `Loading graph · ${elapsedTime.toFixed(2)}s` : `Graph loaded in ${elapsedTime.toFixed(2)}s`}</span>
+                  <span className="graph-load-counts">
+                    {loadingProgress.nodes.toLocaleString()} / {expectedNodeCount.toLocaleString()} nodes · {loadingProgress.links.toLocaleString()} / {expectedLinkCount.toLocaleString()} links
+                  </span>
+                </span>
+                <span
+                  className="graph-load-progress-track"
+                  role="progressbar"
+                  aria-label="Graph loading progress"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow={loadingPercent}
+                >
+                  <span style={{ width: `${loadingPercent}%` }} />
+                </span>
+              </div>
+            )}
 
             {!isLoadingGraph && selectedMethod && projectedNodes.length === 0 && (
               <div className="graph-empty-state" role="alert">
@@ -1127,7 +1501,7 @@ function App() {
               </div>
             )}
 
-            {hoveredNode && (
+            {!isThreeDimensionalView && hoveredNode && (
               <div
                 className="node-tooltip"
                 style={{
@@ -1140,28 +1514,69 @@ function App() {
               </div>
             )}
 
-            <div className={`color-legend${isLegendExpanded ? ' is-expanded' : ''}`}>
-              <h4 className="desktop-legend-title">Color Key</h4>
-              <button
-                type="button"
-                className="mobile-legend-toggle"
-                aria-expanded={isLegendExpanded}
-                aria-controls="color-legend-content"
-                onClick={() => setIsLegendExpanded((current) => !current)}
-              >
-                <span>Color Key</span>
-                <span className="legend-toggle-icon" aria-hidden="true">
-                  {isLegendExpanded ? '−' : '+'}
-                </span>
-              </button>
+            <div
+              className={`color-legend${isLegendExpanded ? ' is-expanded' : ''}`}
+              style={{ '--legend-drawer-height': `${clampLegendHeight(legendHeight, window.innerHeight)}px` }}
+            >
+              {isLegendExpanded && (
+                <div
+                  className="legend-resize-handle"
+                  role="slider"
+                  tabIndex="0"
+                  aria-label="Resize Color Key drawer"
+                  aria-orientation="vertical"
+                  aria-valuemin={MIN_LEGEND_HEIGHT}
+                  aria-valuemax={clampLegendHeight(10000, window.innerHeight)}
+                  aria-valuenow={clampLegendHeight(legendHeight, window.innerHeight)}
+                  onPointerDown={handleLegendResizePointerDown}
+                  onPointerMove={handleLegendResizePointerMove}
+                  onPointerUp={handleLegendResizePointerEnd}
+                  onPointerCancel={handleLegendResizePointerEnd}
+                  onKeyDown={handleLegendResizeKeyDown}
+                >
+                  <span aria-hidden="true" />
+                </div>
+              )}
+              <header className="legend-drawer-header">
+                <button
+                  type="button"
+                  className="mobile-legend-toggle"
+                  aria-expanded={isLegendExpanded}
+                  aria-controls="color-legend-content"
+                  onClick={() => setIsLegendExpanded((current) => !current)}
+                >
+                  <span>Color Key</span>
+                  <span className="legend-toggle-icon" aria-hidden="true">
+                    {isLegendExpanded ? '⌄' : '⌃'}
+                  </span>
+                </button>
+                {legendItems.length > 0 && (
+                  <div className="legend-actions" aria-label="Topic visibility controls">
+                    <button type="button" onClick={showAllGroups} disabled={hiddenGroups.size === 0}>
+                      Show All
+                    </button>
+                    <button type="button" onClick={hideAllGroups} disabled={hiddenGroups.size === legendItems.length}>
+                      Hide All
+                    </button>
+                    <span>{legendItems.length - hiddenGroups.size} of {legendItems.length} shown</span>
+                  </div>
+                )}
+              </header>
               <div id="color-legend-content" className="legend-content">
                 {legendItems.length === 0 && <p>No node data loaded yet.</p>}
                 {legendItems.map((item) => (
-                  <div key={item.group} className="legend-row">
+                  <button
+                    key={item.group}
+                    type="button"
+                    className={`legend-row${hiddenGroups.has(item.group) ? ' is-hidden' : ''}`}
+                    aria-pressed={!hiddenGroups.has(item.group)}
+                    title={`${hiddenGroups.has(item.group) ? 'Show' : 'Hide'} ${item.group}`}
+                    onClick={() => toggleGroupVisibility(item.group)}
+                  >
                     <span className="legend-swatch" style={{ backgroundColor: item.color }} />
                     <span>{item.group}</span>
                     <span className="legend-count">{item.count}</span>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -1179,48 +1594,61 @@ function App() {
 
         {selectedNode && (
           <section className="details-workspace" aria-label="Selected node details">
-            <aside className="node-details-panel">
-              <div className="mobile-sheet-handle" aria-hidden="true" />
-              <div className="panel-header-row">
-                <h2>Node Details</h2>
-                <button
-                  type="button"
-                  className="close-panel-button"
-                  onClick={() => setSelectedNode(null)}
-                >
-                  Close
-                </button>
-              </div>
-              <p><strong>Reference:</strong> {selectedNode.id}</p>
-              <p><strong>Topic:</strong> {selectedNode.group ?? 'Uncategorized'}</p>
-              <p><strong>Passage:</strong> {selectedNode.text ?? 'No passage text available'}</p>
+            <aside className="node-details-panel" aria-labelledby="node-details-title">
+              <header className="node-details-header">
+                <div className="mobile-sheet-handle" aria-hidden="true" />
+                <div className="panel-header-row">
+                  <h2 id="node-details-title">Node Details</h2>
+                  <button
+                    type="button"
+                    className="close-panel-button"
+                    aria-label="Close node details"
+                    onClick={() => setSelectedNode(null)}
+                  >
+                    Close
+                  </button>
+                </div>
+              </header>
+              <div className="node-details-content">
+                <p><strong>Reference:</strong> {selectedNode.id}</p>
+                <p><strong>{selectedNode.ldaTopicName ? 'BERTopic topic' : 'Topic'}:</strong> {selectedNode.group ?? 'Uncategorized'}</p>
+                {selectedNode.ldaTopicName && (
+                  <p><strong>LDA topic:</strong> {selectedNode.ldaTopicName}</p>
+                )}
+                <p><strong>Passage:</strong> {selectedNode.text ?? 'No passage text available'}</p>
 
-              <h3>Related Passages ({selectedNodeConnections.length})</h3>
-              {selectedNodeConnections.length === 0 && <p>This node has no links in the current dataset.</p>}
-              {selectedNodeConnections.length > 0 && (
-                <ul className="connected-list">
-                  {selectedNodeConnections.map(({ node: connectedNode, link }) => (
-                    <li key={connectedNode.id}>
-                      <button
-                        type="button"
-                        className="connected-node-button"
-                        onClick={() => setSelectedNode(connectedNode)}
-                      >
-                        <span>{connectedNode.id}</span>
-                        <small>
-                          {formatRelationshipDistance(
-                            link,
-                            selectedMethodMetadata.relationshipModel?.distanceLabel,
-                          )} · {Number.isFinite(link.distance) ? 'lower is closer' : 'higher is closer'}
-                        </small>
-                        {Array.isArray(link.sharedTerms) && link.sharedTerms.length > 0 && (
-                          <small>Shared terms: {link.sharedTerms.join(', ')}</small>
-                        )}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+                <h3>Related Passages ({selectedNodeConnections.length})</h3>
+                {selectedNodeConnections.length === 0 && <p>This node has no links in the current dataset.</p>}
+                {selectedNodeConnections.length > 0 && (
+                  <ul className="connected-list">
+                    {selectedNodeConnections.map(({ node: connectedNode, link }) => (
+                      <li key={connectedNode.id}>
+                        <button
+                          type="button"
+                          className="connected-node-button"
+                          onClick={() => focusNode(connectedNode)}
+                        >
+                          <span>{connectedNode.id}</span>
+                          <small>
+                            {formatRelationshipDistance(
+                              link,
+                              selectedMethodMetadata.relationshipModel?.distanceLabel,
+                            )} · {Number.isFinite(link.distance) ? 'lower is closer' : 'higher is closer'}
+                          </small>
+                          {Number.isFinite(link.bertopicDistance) && Number.isFinite(link.ldaDistance) && (
+                            <small>
+                              BERTopic: {link.bertopicDistance.toFixed(4)} · LDA: {link.ldaDistance.toFixed(4)}
+                            </small>
+                          )}
+                          {Array.isArray(link.sharedTerms) && link.sharedTerms.length > 0 && (
+                            <small>Shared terms: {link.sharedTerms.join(', ')}</small>
+                          )}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </aside>
           </section>
         )}

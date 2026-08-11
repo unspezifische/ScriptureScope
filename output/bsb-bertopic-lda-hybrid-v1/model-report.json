@@ -1,0 +1,30 @@
+{
+  "generatedAt": "2026-08-08T23:08:09.465Z",
+  "alignment": {
+    "status": "exact",
+    "rule": "BERTopic is canonical; every LDA node must have the same id and exact text",
+    "nodeCount": 20872
+  },
+  "inputs": {
+    "bertopic": {
+      "id": "bsb-bertopic-v1",
+      "nodesSha256": "48b4bdcf97b6cc35c009610b4bf885f4da89019555cd783a0b5928bbdd1ec88e"
+    },
+    "lda": {
+      "id": "bsb-lda-aligned-v1",
+      "nodesSha256": "bef2a4cb610135c8c9aaad6d6c694f0c3d1001a7321bea7f7a605e738efbccd0"
+    }
+  },
+  "relationshipGraph": {
+    "nodeCount": 20872,
+    "linkCount": 48570,
+    "k": 10,
+    "candidateK": 50,
+    "candidateMethod": "approximate-nndescent-candidates-exact-rerank",
+    "weights": {
+      "bertopic": 0.5,
+      "lda": 0.5
+    }
+  },
+  "distanceFormula": "combined = normalized_bertopic_weight * JSD_distance(bertopic) + normalized_lda_weight * JSD_distance(lda)"
+}

@@ -1,0 +1,143 @@
+{
+  "id": "bsb-bertopic-lda-hybrid-v1",
+  "displayName": "BSB Hybrid Topics · BERTopic + LDA v1",
+  "description": "A node-aligned hybrid graph combining transformer-based semantic topic affinity with lexical LDA topic affinity for every canonical BSB passage.",
+  "calculation": "Each model independently supplies a base-2 square-root Jensen-Shannon distance in the zero-to-one range. The hybrid distance is their normalized weighted arithmetic mean, and reciprocal top-k neighbors become links.",
+  "methodType": "analysis-and-layout",
+  "bibleVersion": "Berean Study Bible (BSB)",
+  "corpusVersion": "canonical-bsb-passage-corpus-f0efe860bd35",
+  "generatedAt": "2026-08-08T23:08:09.465Z",
+  "representation": {
+    "id": "aligned-bertopic-and-lda-distributions",
+    "version": "1.0.0",
+    "description": "Every passage carries its BERTopic semantic-affinity distribution and its independently fitted LDA lexical-topic distribution on exactly matching text.",
+    "parameters": {
+      "bertopicDimensions": 122,
+      "ldaDimensions": 40,
+      "alignment": "exact id and text equality"
+    }
+  },
+  "relationship": {
+    "id": "weighted-bertopic-lda-jsd-mutual-knn",
+    "version": "1.0.0",
+    "metric": "weighted mean of per-model base-2 square-root Jensen-Shannon distances",
+    "scoreKind": "distance",
+    "scoreDirection": "lower-is-closer",
+    "linkRule": "Candidate neighbors are proposed independently in each model, exactly reranked by the hybrid distance, and retained only for reciprocal top-k pairs.",
+    "parameters": {
+      "nodeCount": 20872,
+      "linkCount": 48570,
+      "k": 10,
+      "candidateK": 50,
+      "candidateMethod": "approximate-nndescent-candidates-exact-rerank",
+      "weights": {
+        "bertopic": 0.5,
+        "lda": 0.5
+      }
+    }
+  },
+  "layout": {
+    "id": "umap-cosine-2d",
+    "version": "1.0.0",
+    "distanceMeaning": "Coordinates are the original BERTopic UMAP projection and are held constant across the BERTopic, aligned LDA, and hybrid views; link distance is separate from screen distance.",
+    "parameters": {
+      "nNeighbors": 20,
+      "minDist": 0.08,
+      "metric": "cosine",
+      "seed": 42
+    }
+  },
+  "models": {
+    "bertopic": {
+      "datasetId": "bsb-bertopic-v1",
+      "metadata": {
+        "id": "bertopic-bsb-semantic-topics",
+        "version": "1.0.0",
+        "embeddingModel": "sentence-transformers/all-MiniLM-L6-v2",
+        "embeddingModelRevision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+        "clusteringAlgorithm": "UMAP plus HDBSCAN",
+        "labelingMethod": "Names supplied by a complete reviewed label override file; KeyBERT-inspired terms and representative passages retained for audit",
+        "labelStatus": "reviewed",
+        "labelOverridesSha256": "5525b0369aad58913022683cc30989a0ce41eeecdf7bceef67864d2d7c4a593e",
+        "outlierPolicy": "Maximum cosine similarity to a BERTopic topic embedding; no final unassigned passages",
+        "seed": 42,
+        "topicCount": 122,
+        "topicDistributionDimensions": 122,
+        "topicDistributionMeaning": "Softmax-normalized cosine affinities to final hard-topic centroids; these values sum to one but are not calibrated HDBSCAN membership probabilities",
+        "topicDistributionTemperature": 0.07,
+        "parameters": {
+          "embeddingModel": "sentence-transformers/all-MiniLM-L6-v2",
+          "embeddingModelRevision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+          "embeddingDimensions": 384,
+          "seed": 42,
+          "umap": {
+            "nNeighbors": 20,
+            "nComponents": 5,
+            "minDist": 0.0,
+            "metric": "cosine"
+          },
+          "hdbscan": {
+            "minClusterSize": 30,
+            "minSamples": 8,
+            "metric": "euclidean",
+            "clusterSelectionMethod": "eom"
+          },
+          "representation": {
+            "vectorizerNgramRange": [
+              1,
+              2
+            ],
+            "vectorizerMinimumDocumentFrequency": 3,
+            "vectorizerMaximumDocumentFrequency": 0.9,
+            "vectorizerDocumentUnit": "passage",
+            "vectorizerVocabularySize": 21259,
+            "classTfidfBm25Weighting": true,
+            "classTfidfReduceFrequentWords": true,
+            "keyBertInspired": true
+          },
+          "outlierPolicy": "Assign every HDBSCAN outlier to the BERTopic topic embedding with maximum cosine similarity",
+          "topicAffinityDistribution": {
+            "method": "Softmax-normalized cosine similarity between each normalized passage embedding and normalized final hard-topic centroids",
+            "temperature": 0.07,
+            "calibration": "Normalized semantic affinity, not a calibrated HDBSCAN membership probability",
+            "assignmentSemantics": "Hard assignments come from HDBSCAN plus outlier reassignment and need not equal the maximum affinity component"
+          },
+          "labelingMethod": "Names supplied by a complete reviewed label override file; KeyBERT-inspired terms and representative passages retained for audit"
+        }
+      }
+    },
+    "lda": {
+      "datasetId": "bsb-lda-aligned-v1",
+      "metadata": {
+        "algorithm": "scikit-learn batch variational LatentDirichletAllocation",
+        "topicCount": 40,
+        "seed": 42,
+        "maxIterations": 50,
+        "vocabularySize": 22553,
+        "documentTermNonzeroCount": 338435,
+        "vectorizer": {
+          "ngramRange": [
+            1,
+            2
+          ],
+          "minimumDocumentFrequency": 3,
+          "maximumDocumentFrequency": 0.9,
+          "maximumFeatures": 30000
+        }
+      }
+    }
+  },
+  "parameters": {
+    "nodeCount": 20872,
+    "linkCount": 48570
+  },
+  "artifacts": {
+    "nodesSha256": "fedf7bd2187ae0d0fbe9792c218b093ff17d3c294a3b23ae06ddb22732bf0557",
+    "linksSha256": "65bc456c007bce231df521f0ee7091e666db1fd762c56c9ab7c7ec891156fe9a"
+  },
+  "sources": [
+    "https://maartengr.github.io/BERTopic/",
+    "https://scikit-learn.org/stable/modules/decomposition.html#latentdirichletallocation"
+  ],
+  "referenceFormat": "Canonical English book name followed by chapter and verse"
+}

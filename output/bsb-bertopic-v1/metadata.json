@@ -1,0 +1,107 @@
+{
+  "id": "bsb-bertopic-v1",
+  "displayName": "BSB Semantic Topics · BERTopic v1",
+  "description": "A transformer-based topic map of 20,872 Berean Study Bible passage chunks with reader-facing topic names, explicit topic assignments, and a seeded UMAP layout.",
+  "calculation": "Passages are split into bounded tokenizer chunks, encoded with the pinned sentence-transformers/all-MiniLM-L6-v2 Sentence Transformer, combined as token-weighted normalized passage embeddings, reduced with seeded UMAP, clustered with HDBSCAN, and represented with BM25-weighted class TF-IDF plus KeyBERT-inspired terms. HDBSCAN outliers are assigned to the nearest semantic topic embedding, and topic names are stored in group and topicName.",
+  "methodType": "analysis-and-layout",
+  "bibleVersion": "Berean Study Bible (BSB)",
+  "corpusVersion": "canonical-bsb-passage-corpus-f0efe860bd35",
+  "generatedAt": "2026-08-08T00:55:42.541674Z",
+  "representation": {
+    "id": "sentence-transformer-mean-chunk-embedding",
+    "version": "1.0.0",
+    "description": "Each passage is represented by a normalized token-weighted mean of normalized token-chunk embeddings from the pinned sentence-transformers/all-MiniLM-L6-v2 checkpoint.",
+    "parameters": {
+      "model": "sentence-transformers/all-MiniLM-L6-v2",
+      "revision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+      "chunkTokens": 220,
+      "modelMaximumSequenceLength": 256,
+      "embeddingDimensions": 384
+    }
+  },
+  "relationship": null,
+  "layout": {
+    "id": "umap-cosine-2d",
+    "version": "1.0.0",
+    "distanceMeaning": "Nearby points have similar transformer embeddings in a seeded two-dimensional UMAP projection; screen distance is qualitative and is not a calibrated probability.",
+    "parameters": {
+      "nNeighbors": 20,
+      "minDist": 0.08,
+      "metric": "cosine",
+      "seed": 42
+    }
+  },
+  "topicModel": {
+    "id": "bertopic-bsb-semantic-topics",
+    "version": "1.0.0",
+    "embeddingModel": "sentence-transformers/all-MiniLM-L6-v2",
+    "embeddingModelRevision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+    "clusteringAlgorithm": "UMAP plus HDBSCAN",
+    "labelingMethod": "Names supplied by a complete reviewed label override file; KeyBERT-inspired terms and representative passages retained for audit",
+    "labelStatus": "reviewed",
+    "labelOverridesSha256": "5525b0369aad58913022683cc30989a0ce41eeecdf7bceef67864d2d7c4a593e",
+    "outlierPolicy": "Maximum cosine similarity to a BERTopic topic embedding; no final unassigned passages",
+    "seed": 42,
+    "topicCount": 122,
+    "topicDistributionDimensions": 122,
+    "topicDistributionMeaning": "Softmax-normalized cosine affinities to final hard-topic centroids; these values sum to one but are not calibrated HDBSCAN membership probabilities",
+    "topicDistributionTemperature": 0.07,
+    "parameters": {
+      "embeddingModel": "sentence-transformers/all-MiniLM-L6-v2",
+      "embeddingModelRevision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+      "embeddingDimensions": 384,
+      "seed": 42,
+      "umap": {
+        "nNeighbors": 20,
+        "nComponents": 5,
+        "minDist": 0.0,
+        "metric": "cosine"
+      },
+      "hdbscan": {
+        "minClusterSize": 30,
+        "minSamples": 8,
+        "metric": "euclidean",
+        "clusterSelectionMethod": "eom"
+      },
+      "representation": {
+        "vectorizerNgramRange": [
+          1,
+          2
+        ],
+        "vectorizerMinimumDocumentFrequency": 3,
+        "vectorizerMaximumDocumentFrequency": 0.9,
+        "vectorizerDocumentUnit": "passage",
+        "vectorizerVocabularySize": 21259,
+        "classTfidfBm25Weighting": true,
+        "classTfidfReduceFrequentWords": true,
+        "keyBertInspired": true
+      },
+      "outlierPolicy": "Assign every HDBSCAN outlier to the BERTopic topic embedding with maximum cosine similarity",
+      "topicAffinityDistribution": {
+        "method": "Softmax-normalized cosine similarity between each normalized passage embedding and normalized final hard-topic centroids",
+        "temperature": 0.07,
+        "calibration": "Normalized semantic affinity, not a calibrated HDBSCAN membership probability",
+        "assignmentSemantics": "Hard assignments come from HDBSCAN plus outlier reassignment and need not equal the maximum affinity component"
+      },
+      "labelingMethod": "Names supplied by a complete reviewed label override file; KeyBERT-inspired terms and representative passages retained for audit"
+    }
+  },
+  "parameters": {
+    "nodeCount": 20872,
+    "linkCount": 0,
+    "topicCount": 122,
+    "originalOutlierCount": 9632,
+    "finalOutlierCount": 0
+  },
+  "artifacts": {
+    "nodesSha256": "48b4bdcf97b6cc35c009610b4bf885f4da89019555cd783a0b5928bbdd1ec88e",
+    "linksSha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "topicLabelsSha256": "d805084efaa82daa57f8e8bcb9689887b7f425e272528174eedb5aa25b4df2cd"
+  },
+  "sources": [
+    "https://maartengr.github.io/BERTopic/",
+    "https://www.sbert.net/",
+    "https://umap-learn.readthedocs.io/en/latest/reproducibility.html"
+  ],
+  "referenceFormat": "Canonical English book name followed by chapter and verse"
+}

@@ -1,5 +1,5 @@
 # ScriptureScope
-A website visualization tool for the Bible
+A web-based data visualization tool for the Bible
 
 This project allows people to view Bible passages, grouped visually by topic, similar to the data visualizations for LLMs and vector databases. It uses the Gensim library for Python to analyize parsed USX (Unified Scripture XML) files, which can be found at the Digital Bible Library: https://thedigitalbiblelibrary.org. There is a bit of a process to get a library card, but if you have one, there are many Bible versions (in many languages) that are freely available without any licensing arangements required. The actual site itself can be found a the https://scripturescope-71f88.web.app
 
@@ -27,7 +27,7 @@ cp output/visualization.wasm scripture-scope/public/visualization.wasm
 npm install
 npm run build
 firebase login
-firebase use scripturescope-71f88
+firebase use {project-name}
 npm run deploy:hosting
 ```
 

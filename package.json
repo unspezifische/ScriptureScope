@@ -11,7 +11,15 @@
     "data:export-legacy-topic-corpus": "npm --prefix scripture-scope run data:export-legacy-topic-corpus",
     "model:tfidf-links": "npm --prefix scripture-scope run model:tfidf-links",
     "model:topic-links": "npm --prefix scripture-scope run model:topic-links",
+    "model:bertopic": "npm --prefix scripture-scope run model:bertopic --",
+    "model:bertopic-links": "npm --prefix scripture-scope run model:bertopic-links --",
+    "model:lda-aligned": "npm --prefix scripture-scope run model:lda-aligned --",
+    "model:topic-fusion": "npm --prefix scripture-scope run model:topic-fusion --",
+    "data:normalize-book-names": "npm --prefix scripture-scope run data:normalize-book-names --",
+    "publish:bert-topics": "npm --prefix scripture-scope run publish:bert-topics --",
     "publish:datasets": "npm --prefix scripture-scope run publish:datasets",
+    "cleanup:firestore": "npm --prefix scripture-scope run cleanup:firestore --",
+    "test:bert-publisher": "npm --prefix scripture-scope run test:bert-publisher",
     "deploy:hosting": "firebase deploy --only hosting"
   }
 }

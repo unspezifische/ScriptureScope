@@ -1,0 +1,92 @@
+{
+  "id": "bsb-lda-aligned-v1",
+  "displayName": "BSB Lexical Topics · aligned LDA v1",
+  "description": "A lexical LDA topic graph fitted to exactly the same passage nodes and text used by the BERTopic dataset, enabling node-for-node comparison.",
+  "calculation": "Passage word and bigram counts are transformed into LDA topic probabilities. Links connect reciprocal nearest neighbors by base-2 square-root Jensen-Shannon distance between those probability vectors.",
+  "methodType": "analysis-and-layout",
+  "bibleVersion": "Berean Study Bible (BSB)",
+  "corpusVersion": "canonical-bsb-passage-corpus-f0efe860bd35",
+  "generatedAt": "2026-08-08T23:02:39.716Z",
+  "representation": {
+    "id": "count-vector-lda-topic-distribution",
+    "version": "1.0.0",
+    "description": "Each canonical BERTopic passage is represented as a normalized probability distribution over deterministic lexical LDA topics.",
+    "parameters": {
+      "algorithm": "scikit-learn batch variational LatentDirichletAllocation",
+      "topicCount": 40,
+      "seed": 42,
+      "maxIterations": 50,
+      "vocabularySize": 22553,
+      "documentTermNonzeroCount": 338435,
+      "vectorizer": {
+        "ngramRange": [
+          1,
+          2
+        ],
+        "minimumDocumentFrequency": 3,
+        "maximumDocumentFrequency": 0.9,
+        "maximumFeatures": 30000
+      }
+    }
+  },
+  "relationship": {
+    "id": "lda-jsd-mutual-knn",
+    "version": "1.0.0",
+    "metric": "base-2 square-root Jensen-Shannon distance",
+    "scoreKind": "distance",
+    "scoreDirection": "lower-is-closer",
+    "linkRule": "Retain an undirected edge only when both passages rank each other in their top-k candidate-reranked neighbors.",
+    "parameters": {
+      "nodeCount": 20872,
+      "linkCount": 46789,
+      "k": 10,
+      "candidateK": 50,
+      "candidateMethod": "approximate-nndescent-candidates-exact-rerank",
+      "weights": {
+        "lda": 1.0
+      }
+    }
+  },
+  "layout": {
+    "id": "umap-cosine-2d",
+    "version": "1.0.0",
+    "distanceMeaning": "Coordinates are copied exactly from the BERTopic UMAP layout so visual changes between model views reflect topic assignments and links, not a moving layout.",
+    "parameters": {
+      "nNeighbors": 20,
+      "minDist": 0.08,
+      "metric": "cosine",
+      "seed": 42
+    }
+  },
+  "ldaModel": {
+    "algorithm": "scikit-learn batch variational LatentDirichletAllocation",
+    "topicCount": 40,
+    "seed": 42,
+    "maxIterations": 50,
+    "vocabularySize": 22553,
+    "documentTermNonzeroCount": 338435,
+    "vectorizer": {
+      "ngramRange": [
+        1,
+        2
+      ],
+      "minimumDocumentFrequency": 3,
+      "maximumDocumentFrequency": 0.9,
+      "maximumFeatures": 30000
+    }
+  },
+  "parameters": {
+    "nodeCount": 20872,
+    "linkCount": 46789,
+    "topicCount": 40
+  },
+  "artifacts": {
+    "nodesSha256": "bef2a4cb610135c8c9aaad6d6c694f0c3d1001a7321bea7f7a605e738efbccd0",
+    "linksSha256": "c13ad523be16b0a26ab35510953695d3a2583c19cf974ce1c17ece60a4ea5020",
+    "topicLabelsSha256": "5a1bdfb0f8cee58b85d7403ec274b5b34e446931ee93b16a674211b9bb7e98de"
+  },
+  "sources": [
+    "https://scikit-learn.org/stable/modules/decomposition.html#latentdirichletallocation"
+  ],
+  "referenceFormat": "Canonical English book name followed by chapter and verse"
+}

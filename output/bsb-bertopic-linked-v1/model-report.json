@@ -1,0 +1,15 @@
+{
+  "generatedAt": "2026-08-08T23:04:59.013Z",
+  "sourceDataset": "output/bsb-bertopic-v1",
+  "sourceNodesSha256": "48b4bdcf97b6cc35c009610b4bf885f4da89019555cd783a0b5928bbdd1ec88e",
+  "relationshipGraph": {
+    "nodeCount": 20872,
+    "linkCount": 61164,
+    "k": 10,
+    "candidateK": 50,
+    "candidateMethod": "approximate-nndescent-candidates-exact-rerank",
+    "weights": {
+      "bertopic": 1.0
+    }
+  }
+}

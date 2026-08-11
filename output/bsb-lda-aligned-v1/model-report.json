@@ -1,0 +1,41 @@
+{
+  "generatedAt": "2026-08-08T23:02:39.716Z",
+  "canonicalCorpus": {
+    "datasetId": "bsb-bertopic-v1",
+    "nodesSha256": "48b4bdcf97b6cc35c009610b4bf885f4da89019555cd783a0b5928bbdd1ec88e",
+    "nodeCount": 20872,
+    "alignment": "Exact node ids, text, order, and display coordinates copied from BERTopic"
+  },
+  "runtime": {
+    "pythonVersion": "3.10.20",
+    "numpy": "2.2.6",
+    "scikitLearn": "1.7.2"
+  },
+  "model": {
+    "algorithm": "scikit-learn batch variational LatentDirichletAllocation",
+    "topicCount": 40,
+    "seed": 42,
+    "maxIterations": 50,
+    "vocabularySize": 22553,
+    "documentTermNonzeroCount": 338435,
+    "vectorizer": {
+      "ngramRange": [
+        1,
+        2
+      ],
+      "minimumDocumentFrequency": 3,
+      "maximumDocumentFrequency": 0.9,
+      "maximumFeatures": 30000
+    }
+  },
+  "relationshipGraph": {
+    "nodeCount": 20872,
+    "linkCount": 46789,
+    "k": 10,
+    "candidateK": 50,
+    "candidateMethod": "approximate-nndescent-candidates-exact-rerank",
+    "weights": {
+      "lda": 1.0
+    }
+  }
+}
